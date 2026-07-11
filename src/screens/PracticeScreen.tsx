@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Animated, ScrollView, Alert,
+  View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Animated, Easing, ScrollView, Alert,
 } from 'react-native';
 import { Audio } from 'expo-av';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -12,50 +12,51 @@ import { generateExercise, getRandomKeySignature, GeneratedNote, BothMode } from
 import { isNoteMatch, noteToFreq } from '../utils/musicTheory';
 import { DURATION_BEATS } from '../constants/notes';
 import { useMetronome } from '../utils/useMetronome';
-import SheetMusic from '../components/SheetMusic';
+import { timbreSettings } from '../utils/timbreSettings';
+import SheetMusic, { NotePosition } from '../components/SheetMusic';
 import PitchDetectorView, { PitchDetectorHandle } from '../components/PitchDetectorView';
+import { useLang } from '../context/LangContext';
 
 type Route = RouteProp<RootStackParamList, 'Practice'>;
 type Nav = StackNavigationProp<RootStackParamList, 'Practice'>;
 type NoteResult = 'correct' | 'wrong' | 'pending';
 type Phase = 'idle' | 'countdown' | 'playing' | 'done';
 
-// Piano pop synth: clean fundamental + brief brightness + hammer click
-const SYNTH_HTML = `<!DOCTYPE html><html><body><script>
-var _ctx=null;
+function buildSynthHtml(brightness: number, sustain: number) {
+  return `<!DOCTYPE html><html><body><script>
+var _ctx=null,BR=${brightness},SU=${sustain};
 function _play(freq,dur){
   if(!_ctx)_ctx=new(window.AudioContext||window.webkitAudioContext)();
-  var t=_ctx.currentTime;
-  var tc=Math.max(dur*0.28,0.08);
-  // Fundamental: strong sine, exponential decay via setTargetAtTime
+  var t=_ctx.currentTime,tc=Math.max(dur*0.3,SU);
   var o1=_ctx.createOscillator(),g1=_ctx.createGain();
   o1.type='sine';o1.frequency.value=freq;
-  g1.gain.setValueAtTime(0,t);
-  g1.gain.linearRampToValueAtTime(0.82,t+0.003);
-  g1.gain.setTargetAtTime(0,t+0.003,tc);
-  o1.connect(g1);g1.connect(_ctx.destination);
-  o1.start(t);o1.stop(t+tc*5+0.05);
-  // Octave overtone: brief brightness, decays in ~20ms
+  g1.gain.setValueAtTime(0,t);g1.gain.linearRampToValueAtTime(0.68,t+0.007);
+  g1.gain.setTargetAtTime(0,t+0.007,tc);
+  o1.connect(g1);g1.connect(_ctx.destination);o1.start(t);o1.stop(t+tc*6+0.1);
   var o2=_ctx.createOscillator(),g2=_ctx.createGain();
   o2.type='sine';o2.frequency.value=freq*2;
-  g2.gain.setValueAtTime(0,t);
-  g2.gain.linearRampToValueAtTime(0.16,t+0.002);
-  g2.gain.setTargetAtTime(0,t+0.002,0.018);
-  o2.connect(g2);g2.connect(_ctx.destination);
-  o2.start(t);o2.stop(t+0.18);
-  // Hammer click: 7ms noise burst
-  try{
-    var sr=_ctx.sampleRate,len=Math.floor(sr*0.007);
-    var b=_ctx.createBuffer(1,len,sr),d=b.getChannelData(0);
-    for(var i=0;i<len;i++)d[i]=(Math.random()*2-1)*(1-i/len);
-    var s=_ctx.createBufferSource(),gn=_ctx.createGain();
-    gn.gain.value=0.09;s.buffer=b;s.connect(gn);gn.connect(_ctx.destination);s.start(t);
-  }catch(e){}
+  g2.gain.setValueAtTime(0,t);g2.gain.linearRampToValueAtTime(BR*0.8,t+0.004);
+  g2.gain.setTargetAtTime(0,t+0.004,0.06);
+  o2.connect(g2);g2.connect(_ctx.destination);o2.start(t);o2.stop(t+0.5);
+  var o3=_ctx.createOscillator(),g3=_ctx.createGain();
+  o3.type='sine';o3.frequency.value=freq*3;
+  g3.gain.setValueAtTime(0,t);g3.gain.linearRampToValueAtTime(BR*0.35,t+0.003);
+  g3.gain.setTargetAtTime(0,t+0.003,0.025);
+  o3.connect(g3);g3.connect(_ctx.destination);o3.start(t);o3.stop(t+0.2);
+  var o4=_ctx.createOscillator(),g4=_ctx.createGain();
+  o4.type='sine';o4.frequency.value=freq*4;
+  g4.gain.setValueAtTime(0,t);g4.gain.linearRampToValueAtTime(BR*0.15,t+0.002);
+  g4.gain.setTargetAtTime(0,t+0.002,0.012);
+  o4.connect(g4);g4.connect(_ctx.destination);o4.start(t);o4.stop(t+0.12);
+  try{var sr=_ctx.sampleRate,len=Math.floor(sr*0.005),b=_ctx.createBuffer(1,len,sr),d=b.getChannelData(0);
+  for(var i=0;i<len;i++)d[i]=(Math.random()*2-1)*(1-i/len);
+  var s=_ctx.createBufferSource(),gn=_ctx.createGain();
+  gn.gain.value=0.035;s.buffer=b;s.connect(gn);gn.connect(_ctx.destination);s.start(t);}catch(e){}
 }
 function onMsg(e){try{var m=JSON.parse(e.data);if(m.cmd==='play')_play(m.freq,m.dur);}catch(_){}}
-document.addEventListener('message',onMsg);
-window.addEventListener('message',onMsg);
+document.addEventListener('message',onMsg);window.addEventListener('message',onMsg);
 </script></body></html>`;
+}
 
 export default function PracticeScreen() {
   const route = useRoute<Route>();
@@ -63,6 +64,7 @@ export default function PracticeScreen() {
   const { levelId, clef, noteCount, bothMode } = route.params;
   const level = LEVELS.find(l => l.id === levelId)!;
   const isSimultaneous = clef === 'both' && bothMode === 'simultaneous';
+  const { t } = useLang();
 
   // ── State ──────────────────────────────────────────────────────────
   const [notes, setNotes] = useState<GeneratedNote[]>([]);
@@ -72,6 +74,7 @@ export default function PracticeScreen() {
   const [phase, setPhase] = useState<Phase>('idle');
   const [countdown, setCountdown] = useState(0);
   const [beatIndicator, setBeatIndicator] = useState(false);
+  const [metronomeMuted, setMetronomeMuted] = useState(false);
 
   // ── Refs ───────────────────────────────────────────────────────────
   const pitchRef = useRef<PitchDetectorHandle>(null);
@@ -83,6 +86,14 @@ export default function PracticeScreen() {
   const noteStartBeatRef = useRef(0);
   const phaseRef = useRef<Phase>('idle');
   const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  // ── Cursor refs ────────────────────────────────────────────────────
+  const notePositionsRef = useRef<NotePosition[]>([]);
+  const cursorLineIdxRef = useRef(0);
+  const cursorXAnim = useRef(new Animated.Value(-100)).current;
+  const cursorSequenceRef = useRef<Animated.CompositeAnimation | null>(null);
+  const [cursorLineIdx, setCursorLineIdx] = useState(0);
+  const synthHtml = useRef((() => { const t = timbreSettings.get(); return buildSynthHtml(t.brightness, t.sustain); })()).current;
 
   // Keep refs in sync
   useEffect(() => { currentIdxRef.current = currentNoteIdx; }, [currentNoteIdx]);
@@ -114,6 +125,11 @@ export default function PracticeScreen() {
     resultsRef.current = pending;
     setCurrentNoteIdx(-1);
     currentIdxRef.current = -1;
+    cursorXAnim.stopAnimation();
+    cursorXAnim.setValue(-100);
+    setCursorLineIdx(0);
+    cursorLineIdxRef.current = 0;
+    notePositionsRef.current = [];
   }
 
   useEffect(() => { generateNewExercise(); }, []);
@@ -121,9 +137,55 @@ export default function PracticeScreen() {
   // ── Synth: play a note by frequency ────────────────────────────────
   function playSound(freq: number) {
     synthRef.current?.injectJavaScript(
-      `window.dispatchEvent(new MessageEvent('message',{data:${JSON.stringify(JSON.stringify({ cmd: 'play', freq, dur: 0.4 }))}}));true;`
+      `window.dispatchEvent(new MessageEvent('message',{data:${JSON.stringify(JSON.stringify({ cmd: 'play', freq, dur: 0.5 }))}}));true;`
     );
   }
+
+  // ── Cursor: store VexFlow positions after SheetMusic renders ───────
+  const handleNotePositions = useCallback((positions: NotePosition[]) => {
+    notePositionsRef.current = positions;
+  }, []);
+
+  // ── Cursor: slide TO the note when it plays, wait there until next note ──
+  const activateNote = useCallback((idx: number) => {
+    const ns = notesRef.current;
+
+    // Play guide sound immediately
+    [idx, isSimultaneous ? idx + 1 : -1].forEach(i => {
+      if (i >= 0 && i < ns.length) ns[i].keys.forEach(k => playSound(noteToFreq(k)));
+    });
+
+    const moveCursor = () => {
+      const pos = notePositionsRef.current.find(p => p.idx === idx);
+      if (!pos) return;
+
+      if (pos.lineIdx !== cursorLineIdxRef.current) {
+        cursorLineIdxRef.current = pos.lineIdx;
+        setCursorLineIdx(pos.lineIdx);
+      }
+
+      cursorSequenceRef.current?.stop();
+      cursorXAnim.stopAnimation();
+      if (idx === 0) {
+        cursorXAnim.setValue(pos.x);
+      } else {
+        Animated.timing(cursorXAnim, {
+          toValue: pos.x,
+          duration: 80,
+          useNativeDriver: true,
+          easing: Easing.out(Easing.quad),
+        }).start();
+      }
+    };
+
+    // idx=0: cursor not visible yet (countdown), snap immediately — no delay needed
+    // idx>0: delay 80ms so WebView note-highlight renders before cursor arrives
+    if (idx === 0) {
+      moveCursor();
+    } else {
+      setTimeout(moveCursor, 80);
+    }
+  }, [isSimultaneous]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Highlighted indices (blue notes) ───────────────────────────────
   function getHighlighted(idx: number): number[] {
@@ -148,12 +210,13 @@ export default function PracticeScreen() {
       if (beat >= 3) {
         phaseRef.current = 'playing';
         setPhase('playing');
-        beatCountRef.current = 0;
+        beatCountRef.current = 1;
         noteStartBeatRef.current = 0;
         const startIdx = 0;
         setCurrentNoteIdx(startIdx);
         currentIdxRef.current = startIdx;
         pitchRef.current?.start();
+        activateNote(startIdx);
       }
       return;
     }
@@ -182,24 +245,28 @@ export default function PracticeScreen() {
       if (nextIdx >= ns.length) {
         phaseRef.current = 'done';
         setPhase('done');
+        stopMetronome();
         pitchRef.current?.stop();
         setCurrentNoteIdx(-1);
+        cursorXAnim.stopAnimation();
         const correct = results.filter(r => r === 'correct').length;
         setTimeout(() => navigation.navigate('Result', { correct, total: ns.length, levelId, clef, noteCount, bothMode }), 800);
       } else {
         setCurrentNoteIdx(nextIdx);
         currentIdxRef.current = nextIdx;
         noteStartBeatRef.current = beatCountRef.current;
+        activateNote(nextIdx);
       }
     }
     beatCountRef.current += 1;
-  }, [isSimultaneous]);
+  }, [isSimultaneous, activateNote]);
 
-  const { start: startMetronome, stop: stopMetronome } = useMetronome(level.bpm, handleTick);
+  const { start: startMetronome, stop: stopMetronome } = useMetronome(level.bpm, handleTick, metronomeMuted);
 
   // ── Start: resets results but KEEPS same notes ─────────────────────
   function handleStart() {
     if (phase === 'playing' || phase === 'countdown') return;
+    stopMetronome(); // clear any lingering interval before restarting
     const pending: NoteResult[] = notesRef.current.map(() => 'pending');
     setNoteResults(pending);
     resultsRef.current = pending;
@@ -219,73 +286,37 @@ export default function PracticeScreen() {
     setPhase('idle');
     phaseRef.current = 'idle';
     setCurrentNoteIdx(-1);
+    cursorXAnim.stopAnimation();
+    cursorXAnim.setValue(-100);
+    setCursorLineIdx(0);
+    cursorLineIdxRef.current = 0;
   }
 
-  // ── Pitch detection ────────────────────────────────────────────────
+  // ── Pitch detection — only marks notes correct/wrong, cursor drives advancement
   const handlePitch = useCallback((freq: number) => {
     if (phaseRef.current !== 'playing') return;
     const idx = currentIdxRef.current;
     const ns = notesRef.current;
     if (idx < 0 || idx >= ns.length) return;
 
-    const step = isSimultaneous ? 2 : 1;
     const toCheck = isSimultaneous ? [idx, idx + 1] : [idx];
-
     toCheck.forEach(i => {
       if (i >= ns.length) return;
       if (resultsRef.current[i] !== 'pending') return;
-      const matched = ns[i].keys.some(k => isNoteMatch(freq, k));
-      if (matched) {
+      if (ns[i].keys.some(k => isNoteMatch(freq, k))) {
         const results = [...resultsRef.current];
         results[i] = 'correct';
         resultsRef.current = results;
         setNoteResults([...results]);
-        // Play sound of the detected note
-        playSound(noteToFreq(ns[i].keys[0]));
       }
     });
-
-    // In simultaneous mode: if BOTH in pair are correct, advance
-    if (isSimultaneous) {
-      const i0 = currentIdxRef.current;
-      const i1 = i0 + 1;
-      if (
-        i0 < ns.length && i1 < ns.length &&
-        resultsRef.current[i0] === 'correct' &&
-        resultsRef.current[i1] === 'correct'
-      ) {
-        const nextIdx = i0 + step;
-        if (nextIdx >= ns.length) {
-          phaseRef.current = 'done';
-          setPhase('done');
-          pitchRef.current?.stop();
-          setCurrentNoteIdx(-1);
-        } else {
-          setCurrentNoteIdx(nextIdx);
-          currentIdxRef.current = nextIdx;
-          noteStartBeatRef.current = beatCountRef.current;
-        }
-      }
-    } else {
-      // Sequential: advance when this note is correct
-      if (resultsRef.current[idx] === 'correct') {
-        const nextIdx = idx + 1;
-        if (nextIdx >= ns.length) {
-          phaseRef.current = 'done';
-          setPhase('done');
-          pitchRef.current?.stop();
-          setCurrentNoteIdx(-1);
-        } else {
-          setCurrentNoteIdx(nextIdx);
-          currentIdxRef.current = nextIdx;
-          noteStartBeatRef.current = beatCountRef.current;
-        }
-      }
-    }
   }, [isSimultaneous]);
 
   const correctCount = noteResults.filter(r => r === 'correct').length;
   const wrongCount = noteResults.filter(r => r === 'wrong').length;
+  const isGrand = notes.some(n => n.clef === 'treble') && notes.some(n => n.clef === 'bass');
+  const CURSOR_SYS_H = isGrand ? 200 : 120;
+  const CURSOR_H = isGrand ? 155 : 90;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -293,7 +324,7 @@ export default function PracticeScreen() {
       <PitchDetectorView ref={pitchRef} onPitchDetected={handlePitch} />
       {/* Hidden: synth for note sound feedback */}
       <View style={styles.hidden}>
-        <WebView ref={synthRef} source={{ html: SYNTH_HTML }} javaScriptEnabled originWhitelist={['*']}
+        <WebView ref={synthRef} source={{ html: synthHtml }} javaScriptEnabled originWhitelist={['*']}
           mediaPlaybackRequiresUserAction={false} allowsInlineMediaPlayback />
       </View>
 
@@ -301,30 +332,46 @@ export default function PracticeScreen() {
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => { handleStop(); navigation.goBack(); }}>
-            <Text style={styles.back}>← חזרה</Text>
+            <Text style={styles.back}>{t.back}</Text>
           </TouchableOpacity>
-          <Text style={styles.levelLabel}>רמה {levelId} · {level.nameHe}</Text>
+          <Text style={styles.levelLabel}>{t.levelLabel} {levelId} · {level.nameHe}</Text>
         </View>
 
         {/* Score row */}
         <View style={styles.scoreRow}>
-          <ScoreChip label="נכון" count={correctCount} color="#22c55e" />
+          <ScoreChip label={t.correctLabel} count={correctCount} color="#22c55e" />
           <Animated.View style={[styles.beatDot, {
             transform: [{ scale: pulseAnim }],
             backgroundColor: beatIndicator ? '#4F6EF7' : '#C4CAE0',
           }]} />
-          <ScoreChip label="שגוי" count={wrongCount} color="#ef4444" />
+          <TouchableOpacity onPress={() => setMetronomeMuted(m => !m)} style={styles.muteBtn}>
+            <Text style={styles.muteBtnTxt}>{metronomeMuted ? '🔕' : '🔔'}</Text>
+          </TouchableOpacity>
+          <ScoreChip label={t.wrongLabel} count={wrongCount} color="#ef4444" />
         </View>
 
-        {/* Sheet music */}
+        {/* Sheet music + cursor overlay */}
         {notes.length > 0 && (
-          <SheetMusic
-            notes={notes}
-            highlightedIndices={getHighlighted(currentNoteIdx)}
-            noteResults={noteResults}
-            keySignature={keySignature}
-            timeSignature={[4, 4]}
-          />
+          <View style={{ position: 'relative' }}>
+            <SheetMusic
+              notes={notes}
+              highlightedIndices={getHighlighted(currentNoteIdx)}
+              noteResults={noteResults}
+              keySignature={keySignature}
+              timeSignature={[4, 4]}
+              onNotePositions={handleNotePositions}
+            />
+            {phase === 'playing' && (
+              <Animated.View
+                pointerEvents="none"
+                style={[styles.cursor, {
+                  top: cursorLineIdx * CURSOR_SYS_H + 15,
+                  height: CURSOR_H,
+                  transform: [{ translateX: cursorXAnim }],
+                }]}
+              />
+            )}
+          </View>
         )}
 
         {/* Countdown overlay */}
@@ -337,7 +384,7 @@ export default function PracticeScreen() {
         {/* Progress */}
         {phase === 'playing' && currentNoteIdx >= 0 && (
           <Text style={styles.progress}>
-            תו {Math.floor(currentNoteIdx / (isSimultaneous ? 2 : 1)) + 1} / {notes.length / (isSimultaneous ? 2 : 1)}
+            {t.noteProgress.replace('{n}', String(Math.floor(currentNoteIdx / (isSimultaneous ? 2 : 1)) + 1)).replace('{total}', String(notes.length / (isSimultaneous ? 2 : 1)))}
           </Text>
         )}
 
@@ -346,21 +393,21 @@ export default function PracticeScreen() {
           {(phase === 'idle' || phase === 'done') && (
             <>
               <TouchableOpacity style={styles.startBtn} onPress={handleStart}>
-                <Text style={styles.startBtnTxt}>{phase === 'done' ? 'נסה שוב' : 'התחל'}</Text>
+                <Text style={styles.startBtnTxt}>{phase === 'done' ? t.tryAgain : t.startBtn}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.newBtn} onPress={generateNewExercise}>
-                <Text style={styles.newBtnTxt}>תרגיל חדש</Text>
+                <Text style={styles.newBtnTxt}>{t.newExercise}</Text>
               </TouchableOpacity>
             </>
           )}
           {(phase === 'playing' || phase === 'countdown') && (
             <TouchableOpacity style={styles.stopBtn} onPress={handleStop}>
-              <Text style={styles.startBtnTxt}>עצור</Text>
+              <Text style={styles.startBtnTxt}>{t.stop}</Text>
             </TouchableOpacity>
           )}
         </View>
 
-        <Text style={styles.bpmLabel}>{level.bpm} BPM · {keySignature} major</Text>
+        <Text style={styles.bpmLabel}>{level.bpm} BPM · {keySignature}</Text>
       </ScrollView>
     </SafeAreaView>
   );
@@ -389,6 +436,8 @@ const styles = StyleSheet.create({
   scoreCount: { fontSize: 22, fontWeight: '800' },
   scoreLbl: { fontSize: 12, color: C.muted, fontWeight: '600' },
   beatDot: { width: 18, height: 18, borderRadius: 9 },
+  muteBtn: { padding: 4 },
+  muteBtnTxt: { fontSize: 18 },
   countdownBox: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.88)', zIndex: 10 },
   countdownText: { fontSize: 100, fontWeight: '900', color: C.primary },
   progress: { textAlign: 'center', color: C.muted, fontSize: 13, marginTop: 10 },
@@ -399,4 +448,5 @@ const styles = StyleSheet.create({
   newBtnTxt: { color: C.text, fontSize: 15, fontWeight: '600' },
   stopBtn: { backgroundColor: '#ef4444', borderRadius: 16, paddingVertical: 18, alignItems: 'center' },
   bpmLabel: { textAlign: 'center', color: C.muted, fontSize: 12, marginTop: 12 },
+  cursor: { position: 'absolute', width: 2.5, backgroundColor: '#4F6EF7', opacity: 0.7, borderRadius: 2 },
 });

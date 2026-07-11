@@ -8,4 +8,5 @@ export type RootStackParamList = {
   Search: undefined;
   Result: { correct: number; total: number; levelId: number; clef: Clef; noteCount: number; bothMode: BothMode };
   AudioTest: undefined;
+  Learning: undefined;
 };

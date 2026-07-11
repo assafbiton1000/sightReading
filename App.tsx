@@ -10,11 +10,14 @@ import PlaybackScreen from './src/screens/PlaybackScreen';
 import SearchScreen from './src/screens/SearchScreen';
 import ResultScreen from './src/screens/ResultScreen';
 import AudioTestScreen from './src/screens/AudioTestScreen';
+import LearningScreen from './src/screens/LearningScreen';
+import { LangProvider } from './src/context/LangContext';
 
 const Stack = createStackNavigator<RootStackParamList>();
 
 export default function App() {
   return (
+    <LangProvider>
     <NavigationContainer>
       <StatusBar style="dark" />
       <Stack.Navigator initialRouteName="Home" screenOptions={{ headerShown: false }}>
@@ -24,7 +27,9 @@ export default function App() {
         <Stack.Screen name="Search" component={SearchScreen} />
         <Stack.Screen name="Result" component={ResultScreen} />
         <Stack.Screen name="AudioTest" component={AudioTestScreen} />
+        <Stack.Screen name="Learning" component={LearningScreen} />
       </Stack.Navigator>
     </NavigationContainer>
+    </LangProvider>
   );
 }

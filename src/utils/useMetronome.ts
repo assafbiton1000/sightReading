@@ -44,12 +44,14 @@ function generateClickWavBase64(): string {
 
 const CLICK_URI = generateClickWavBase64();
 
-export function useMetronome(bpm: number, onTick: (beat: number) => void) {
+export function useMetronome(bpm: number, onTick: (beat: number) => void, muted = false) {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const beatRef = useRef(0);
   const onTickRef = useRef(onTick);
   const soundRef = useRef<Audio.Sound | null>(null);
+  const mutedRef = useRef(muted);
   onTickRef.current = onTick;
+  mutedRef.current = muted;
 
   useEffect(() => {
     Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
@@ -63,8 +65,10 @@ export function useMetronome(bpm: number, onTick: (beat: number) => void) {
     beatRef.current = 0;
     const ms = (60 / bpm) * 1000;
     intervalRef.current = setInterval(async () => {
-      const sound = soundRef.current;
-      if (sound) { await sound.setPositionAsync(0); await sound.playAsync(); }
+      if (!mutedRef.current) {
+        const sound = soundRef.current;
+        if (sound) { await sound.setPositionAsync(0); await sound.playAsync(); }
+      }
       onTickRef.current(beatRef.current);
       beatRef.current += 1;
     }, ms);

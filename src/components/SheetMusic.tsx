@@ -1,9 +1,11 @@
 import React, { useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { WebView } from 'react-native-webview';
+import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import { GeneratedNote } from '../utils/noteGenerator';
 import { VEXFLOW_BASE64 } from '../constants/vexflowBundle';
 import { DURATION_BEATS } from '../constants/notes';
+
+export type NotePosition = { idx: number; x: number; lineIdx: number };
 
 interface Props {
   notes: GeneratedNote[];
@@ -12,6 +14,8 @@ interface Props {
   noteResults: ('correct' | 'wrong' | 'pending')[];
   keySignature: string;
   timeSignature: [number, number];
+  /** Called once after VexFlow renders with the absolute x-position of each note */
+  onNotePositions?: (positions: NotePosition[]) => void;
 }
 
 function buildHtml(
@@ -112,14 +116,16 @@ try{
     return sn;
   }
 
+  var allPos=[];
   function drawVoice(items,clef,stave){
-    if(!items||items.length===0) return;
+    if(!items||items.length===0) return [];
     var sns=items.map(function(it){return makeSN(it,clef);});
     var v=new VF.Voice({num_beats:BEATS_PER_LINE,beat_value:beatValue})
       .setMode(VF.Voice.Mode.SOFT);
     v.addTickables(sns);
     new VF.Formatter().joinVoices([v]).format([v],W-70);
     v.draw(ctx,stave);
+    return sns;
   }
 
   for(var li=0;li<numLines;li++){
@@ -141,16 +147,20 @@ try{
       new VF.StaveConnector(ts,bs).setType(VF.StaveConnector.type.BRACE).setContext(ctx).draw();
       new VF.StaveConnector(ts,bs).setType(VF.StaveConnector.type.SINGLE_LEFT).setContext(ctx).draw();
 
-      drawVoice(tLines[li],"treble",ts);
-      drawVoice(bLines[li],"bass",bs);
+      var tSns=drawVoice(tLines[li],"treble",ts);
+      var bSns=drawVoice(bLines[li],"bass",bs);
+      if(tLines[li])tLines[li].forEach(function(it,i){if(tSns[i])allPos.push({idx:it.idx,x:tSns[i].getAbsoluteX(),lineIdx:li});});
+      if(bLines[li])bLines[li].forEach(function(it,i){if(bSns[i])allPos.push({idx:it.idx,x:bSns[i].getAbsoluteX(),lineIdx:li});});
     } else {
       var st=new VF.Stave(10,yBase,sw);
       st.addClef(activeClef);
       if(isFirst){st.addKeySignature(keySig);st.addTimeSignature(timeSig);}
       st.setContext(ctx).draw();
-      drawVoice(tLines[li],activeClef,st);
+      var stSns=drawVoice(tLines[li],activeClef,st);
+      if(tLines[li])tLines[li].forEach(function(it,i){if(stSns[i])allPos.push({idx:it.idx,x:stSns[i].getAbsoluteX(),lineIdx:li});});
     }
   }
+  try{window.ReactNativeWebView.postMessage(JSON.stringify({type:'positions',data:allPos}));}catch(_){}
 
 }catch(e){document.getElementById("error").textContent="Error: "+e.message;}
 })();
@@ -159,7 +169,7 @@ try{
 </html>`;
 }
 
-export default function SheetMusic({ notes, highlightedIndices, noteResults, keySignature, timeSignature }: Props) {
+export default function SheetMusic({ notes, highlightedIndices, noteResults, keySignature, timeSignature, onNotePositions }: Props) {
   const html = useMemo(
     () => buildHtml(notes, highlightedIndices, noteResults, keySignature, timeSignature),
     [notes, highlightedIndices, noteResults, keySignature, timeSignature]
@@ -172,11 +182,19 @@ export default function SheetMusic({ notes, highlightedIndices, noteResults, key
   const numLines = Math.max(1, Math.ceil(totalBeats / 8));
   const height = isGrand ? Math.max(220, numLines * 200 + 40) : Math.max(170, numLines * 120 + 40);
 
+  function handleMessage(e: WebViewMessageEvent) {
+    try {
+      const msg = JSON.parse(e.nativeEvent.data);
+      if (msg.type === 'positions') onNotePositions?.(msg.data);
+    } catch (_) {}
+  }
+
   return (
     <View style={[styles.container, { height }]}>
       <WebView
         source={{ html }}
         style={styles.webview}
+        onMessage={handleMessage}
         scrollEnabled={false}
         originWhitelist={['*']}
         javaScriptEnabled

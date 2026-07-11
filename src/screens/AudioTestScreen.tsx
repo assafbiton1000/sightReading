@@ -8,6 +8,54 @@ import PitchDetectorView, { PitchDetectorHandle } from '../components/PitchDetec
 import SheetMusic from '../components/SheetMusic';
 import { isNoteMatch } from '../utils/musicTheory';
 import { GeneratedNote } from '../utils/noteGenerator';
+import { timbreSettings } from '../utils/timbreSettings';
+import { WebView, WebViewMessageEvent } from 'react-native-webview';
+import { useLang } from '../context/LangContext';
+
+// Calibration WebView: listens 2.5s, measures harmonic brightness + sustain via FFT
+const CAL_HTML = `<!DOCTYPE html><html><body><script>
+if(!navigator.mediaDevices)navigator.mediaDevices={};
+if(!navigator.mediaDevices.getUserMedia){
+  var _g=navigator.getUserMedia||navigator.webkitGetUserMedia||navigator.mozGetUserMedia;
+  navigator.mediaDevices.getUserMedia=_g?function(c){return new Promise(function(r,j){_g.call(navigator,c,r,j);})}:function(){return Promise.reject(new Error('no mic'));};
+}
+function calibrate(){
+  navigator.mediaDevices.getUserMedia({audio:true,video:false})
+  .then(function(stream){
+    var ctx=new(window.AudioContext||window.webkitAudioContext)();
+    var src=ctx.createMediaStreamSource(stream);
+    var an=ctx.createAnalyser();an.fftSize=4096;src.connect(an);
+    var buf=new Float32Array(an.frequencyBinCount);
+    var brightSamples=[],rmsSamples=[];
+    var sr=ctx.sampleRate;var binHz=sr/an.fftSize;
+    var start=Date.now();
+    function tick(){
+      an.getFloatFrequencyData(buf);
+      var peakBin=0,peakDb=-Infinity;
+      for(var i=Math.floor(60/binHz);i<Math.floor(2000/binHz);i++){if(buf[i]>peakDb){peakDb=buf[i];peakBin=i;}}
+      if(peakDb>-55&&peakBin>0){
+        var f1=Math.pow(10,peakDb/20);
+        var h2bin=peakBin*2;
+        var h2db=h2bin<buf.length?buf[h2bin]:-80;
+        var f2=Math.pow(10,h2db/20);
+        brightSamples.push(Math.max(0.04,Math.min(0.40,f2/f1)));
+        rmsSamples.push(f1);
+      }
+      if(Date.now()-start<2500){setTimeout(tick,120);}
+      else{
+        stream.getTracks().forEach(function(t){t.stop();});ctx.close();
+        var b=brightSamples.length>0?brightSamples.reduce(function(a,c){return a+c;},0)/brightSamples.length:0.16;
+        var s=Math.max(0.06,Math.min(0.36,0.30-(b-0.05)*0.8));
+        window.ReactNativeWebView.postMessage(JSON.stringify({type:'timbre',brightness:parseFloat(b.toFixed(3)),sustain:parseFloat(s.toFixed(3))}));
+      }
+    }
+    setTimeout(tick,300);
+  })
+  .catch(function(e){window.ReactNativeWebView.postMessage(JSON.stringify({type:'timbreErr',msg:e.message}));});
+}
+function onCmd(e){try{var m=JSON.parse(e.data);if(m.cmd==='calibrate')calibrate();}catch(_){}}
+document.addEventListener('message',onCmd);window.addEventListener('message',onCmd);
+</script></body></html>`;
 
 // C4–C5 range, easy to test on piano
 const TEST_KEYS = ['c/4', 'd/4', 'e/4', 'f/4', 'g/4', 'a/4', 'b/4', 'c/5'];
@@ -37,6 +85,7 @@ function pickOther(avoid: string): string {
 export default function AudioTestScreen() {
   const navigation = useNavigation();
   const pitchRef = useRef<PitchDetectorHandle>(null);
+  const { t } = useLang();
 
   const [currentKey, setCurrentKey] = useState('g/4');
   const [detected, setDetected] = useState(false);
@@ -44,6 +93,9 @@ export default function AudioTestScreen() {
   const [lastFreq, setLastFreq] = useState<number | null>(null);
   const [micStatus, setMicStatus] = useState<'waiting' | 'ok' | 'error'>('waiting');
   const [micError, setMicError] = useState('');
+  const [calibrating, setCalibrating] = useState(false);
+  const [calibrated, setCalibrated] = useState(false);
+  const calRef = useRef<WebView>(null);
 
   const detectedRef = useRef(false);
   const currentKeyRef = useRef('g/4');
@@ -103,6 +155,29 @@ export default function AudioTestScreen() {
     }
   }, []);
 
+  function startCalibration() {
+    setCalibrating(true);
+    setCalibrated(false);
+    calRef.current?.injectJavaScript(
+      `window.dispatchEvent(new MessageEvent('message',{data:'{"cmd":"calibrate"}'})); true;`
+    );
+    // Timeout fallback
+    setTimeout(() => setCalibrating(false), 4000);
+  }
+
+  function handleCalMessage(e: WebViewMessageEvent) {
+    try {
+      const msg = JSON.parse(e.nativeEvent.data);
+      if (msg.type === 'timbre') {
+        timbreSettings.set({ brightness: msg.brightness, sustain: msg.sustain });
+        setCalibrating(false);
+        setCalibrated(true);
+      } else if (msg.type === 'timbreErr') {
+        setCalibrating(false);
+      }
+    } catch (_) {}
+  }
+
   const disp = NOTE_DISPLAY[currentKey] ?? { name: '?', octave: '' };
   const solfege = NOTE_SOLFEGE[currentKey] ?? currentKey;
 
@@ -114,9 +189,17 @@ export default function AudioTestScreen() {
         {/* Header */}
         <View style={s.header}>
           <TouchableOpacity onPress={() => { pitchRef.current?.stop(); navigation.goBack(); }}>
-            <Text style={s.back}>← חזרה</Text>
+            <Text style={s.back}>{t.back}</Text>
           </TouchableOpacity>
-          <Text style={s.title}>בדיקת שמע</Text>
+          <Text style={s.title}>{t.audioTestTitle}</Text>
+        </View>
+
+        {/* Hidden calibration WebView */}
+        <View style={{ width: 1, height: 1, opacity: 0 }}>
+          <WebView ref={calRef} source={{ html: CAL_HTML, baseUrl: 'http://localhost' }}
+            javaScriptEnabled originWhitelist={['*']} onMessage={handleCalMessage}
+            allowUniversalAccessFromFileURLs mediaPlaybackRequiresUserAction={false}
+            {...({ onPermissionRequest: (r: any) => r.grant(r.resources) } as any)} />
         </View>
 
         {/* Hidden pitch detector */}
@@ -130,11 +213,11 @@ export default function AudioTestScreen() {
         <View style={s.topRow}>
           <View style={s.counterBox}>
             <Text style={s.counterNum}>{count}</Text>
-            <Text style={s.counterLbl}>תווים זוהו</Text>
+            <Text style={s.counterLbl}>{t.notesDetected}</Text>
           </View>
           <View style={[s.badge, detected ? s.badgeGreen : s.badgeBlue]}>
             <Text style={s.badgeTxt}>
-              {detected ? '✓ נכון!' : micStatus === 'ok' ? '🎤 מאזין...' : '🎤 מחכה...'}
+              {detected ? t.correctExclaim : micStatus === 'ok' ? t.listeningLabel : t.waitingLabel}
             </Text>
           </View>
         </View>
@@ -157,18 +240,26 @@ export default function AudioTestScreen() {
         </View>
 
         {/* Instruction */}
-        <Text style={s.hint}>נגן את התו הכחול על הפסנתר. כשתנגן נכון הוא יתחלף לתו חדש.</Text>
+        <Text style={s.hint}>{t.playNoteHint}</Text>
 
         {/* Frequency / mic feedback */}
+        {/* Timbre calibration */}
+        <TouchableOpacity style={[s.calBtn, calibrating && s.calBtnActive]} onPress={startCalibration} disabled={calibrating}>
+          <Text style={s.calBtnTxt}>
+            {calibrating ? t.calibratingLabel : calibrated ? t.calibratedLabel : t.calibrateBtn}
+          </Text>
+        </TouchableOpacity>
+        {calibrating && <Text style={s.calHint}>{t.calibrateHint}</Text>}
+
         <View style={s.debugBox}>
-          <Text style={s.debugTitle}>אות מיקרופון</Text>
+          <Text style={s.debugTitle}>{t.micSignal}</Text>
 
           {micStatus === 'error' ? (
-            <Text style={s.errTxt}>{micError || 'שגיאת מיקרופון'}</Text>
+            <Text style={s.errTxt}>{micError || t.micErrorLabel}</Text>
           ) : lastFreq ? (
-            <Text style={s.freqTxt}>{lastFreq} Hz — מיקרופון פעיל</Text>
+            <Text style={s.freqTxt}>{lastFreq} Hz — {t.micActiveLabel}</Text>
           ) : (
-            <Text style={s.mutedTxt}>ממתין לצליל...</Text>
+            <Text style={s.mutedTxt}>{t.waitingSound}</Text>
           )}
 
           <View style={s.barTrack}>
@@ -224,4 +315,8 @@ const s = StyleSheet.create({
   errTxt: { fontSize: 13, color: '#ef4444', fontWeight: '600' },
   barTrack: { height: 8, backgroundColor: C.border, borderRadius: 4, overflow: 'hidden', marginTop: 10 },
   barFill: { height: 8, backgroundColor: C.primary, borderRadius: 4 },
+  calBtn: { borderRadius: 14, paddingVertical: 14, alignItems: 'center', backgroundColor: '#EEF2FF', borderWidth: 1.5, borderColor: C.primary, marginBottom: 10 },
+  calBtnActive: { backgroundColor: '#E0E7FF' },
+  calBtnTxt: { fontSize: 14, fontWeight: '700', color: C.primary },
+  calHint: { textAlign: 'center', color: C.muted, fontSize: 12, marginBottom: 10 },
 });

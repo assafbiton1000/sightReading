@@ -38,9 +38,9 @@ const PITCH_HTML = `<!DOCTYPE html>
   var stream = null;
   var running = false;
 
-  var BUFFER_SIZE = 2048;
-  var YIN_THRESHOLD = 0.10;
-  var SILENCE_RMS = 0.01;
+  var BUFFER_SIZE = 4096;   // larger = better low-freq accuracy for piano bass notes
+  var YIN_THRESHOLD = 0.15; // was 0.10 — more permissive, picks up piano fundamentals
+  var SILENCE_RMS = 0.003;  // was 0.01 — piano at distance is quieter than 0.01
 
   function rms(buf) {
     var s = 0;

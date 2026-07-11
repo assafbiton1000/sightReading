@@ -5,29 +5,24 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { LEVELS, NOTE_COUNT_OPTIONS, Clef } from '../constants/levels';
 import { BothMode } from '../utils/noteGenerator';
 import { RootStackParamList } from '../navigation/types';
+import { useLang } from '../context/LangContext';
+import { LANGUAGE_META, Lang } from '../utils/i18n';
 
 type Nav = StackNavigationProp<RootStackParamList, 'Home'>;
 type Mode = 'sightreading' | 'playback' | 'search';
 
-const CLEF_OPTIONS: { value: Clef; label: string }[] = [
-  { value: 'treble', label: 'מפתח סול' },
-  { value: 'bass',   label: 'מפתח פה' },
-  { value: 'both',   label: 'שניהם' },
+const CLEF_OPTIONS: { value: Clef; key: 'clefTreble' | 'clefBass' | 'clefBoth' }[] = [
+  { value: 'treble', key: 'clefTreble' },
+  { value: 'bass',   key: 'clefBass'   },
+  { value: 'both',   key: 'clefBoth'   },
 ];
 
-const BOTH_MODE_OPTIONS: { value: BothMode; label: string; desc: string }[] = [
-  { value: 'sequential',   label: 'ימין ← שמאל', desc: 'כל יד ימין, אחר כך שמאל' },
-  { value: 'simultaneous', label: 'שניהם ביחד', desc: 'זוגות — שתי הידיים בו זמנית' },
-];
-
-const MODES: { id: Mode; title: string; desc: string; icon: string; color: string }[] = [
-  { id: 'sightreading', title: 'Sight Reading', desc: 'נגן תווים אקראיים — בדיקה בזמן אמת', icon: '🎯', color: '#4F6EF7' },
-  { id: 'playback',     title: 'האזנה חופשית',  desc: 'הצג תווים ושמע אותם — ללא בדיקה',   icon: '🎵', color: '#10b981' },
-  { id: 'search',       title: 'חיפוש שירים',   desc: 'חפש תווים ואקורדים לשירים',          icon: '🔍', color: '#f59e0b' },
-];
+const LANGS = Object.entries(LANGUAGE_META) as [Lang, { name: string; rtl: boolean }][];
 
 export default function HomeScreen() {
   const navigation = useNavigation<Nav>();
+  const { t, lang, setLang } = useLang();
+
   const [selectedMode, setSelectedMode] = useState<Mode>('sightreading');
   const [selectedLevel, setSelectedLevel] = useState(1);
   const [selectedClef, setSelectedClef] = useState<Clef>('treble');
@@ -36,6 +31,17 @@ export default function HomeScreen() {
 
   const level = LEVELS.find(l => l.id === selectedLevel)!;
   const showOptions = selectedMode !== 'search';
+
+  const MODES: { id: Mode; title: string; desc: string; icon: string; color: string }[] = [
+    { id: 'sightreading', title: t.modeSRTitle,     desc: t.modeSRDesc,     icon: '🎯', color: '#4F6EF7' },
+    { id: 'playback',     title: t.modeListenTitle, desc: t.modeListenDesc, icon: '🎵', color: '#10b981' },
+    { id: 'search',       title: t.modeSearchTitle, desc: t.modeSearchDesc, icon: '🔍', color: '#f59e0b' },
+  ];
+
+  const BOTH_MODES = [
+    { value: 'sequential'   as BothMode, label: t.seqLabel, desc: t.seqDesc },
+    { value: 'simultaneous' as BothMode, label: t.simLabel, desc: t.simDesc },
+  ];
 
   function handleStart() {
     if (selectedMode === 'search') { navigation.navigate('Search'); return; }
@@ -46,10 +52,23 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={s.safe}>
       <ScrollView contentContainerStyle={s.container} showsVerticalScrollIndicator={false}>
-        <Text style={s.title}>קריאת תווים</Text>
-        <Text style={s.subtitle}>פסנתר · Sight Reading</Text>
+        <Text style={s.title}>{t.appTitle}</Text>
+        <Text style={s.subtitle}>{t.appSubtitle}</Text>
 
-        <Label>בחר מצב</Label>
+        {/* Language selector */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.langScroll} contentContainerStyle={s.langRow}>
+          {LANGS.map(([code, meta]) => (
+            <TouchableOpacity
+              key={code}
+              style={[s.langBtn, lang === code && s.langBtnActive]}
+              onPress={() => setLang(code)}
+            >
+              <Text style={[s.langTxt, lang === code && s.langTxtActive]}>{meta.name}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        <Label>{t.chooseMode}</Label>
         <View style={s.modesCol}>
           {MODES.map(m => (
             <TouchableOpacity
@@ -73,7 +92,7 @@ export default function HomeScreen() {
 
         {showOptions && (
           <>
-            <Label>בחר רמה</Label>
+            <Label>{t.chooseLevel}</Label>
             <View style={s.grid}>
               {LEVELS.map(l => (
                 <TouchableOpacity
@@ -88,12 +107,12 @@ export default function HomeScreen() {
             </View>
 
             <View style={s.infoBox}>
-              <IR label="קצב"     value={`${level.bpm} BPM`} />
-              <IR label="אקורדים" value={level.allowChords ? 'כן' : 'לא'} />
-              <IR label="מקשים"   value={`עד ${level.maxSharpsFlats} בכ״מ`} />
+              <IR label={t.tempo}  value={`${level.bpm} BPM`} />
+              <IR label={t.chords} value={level.allowChords ? t.yes : t.no} />
+              <IR label={t.maxKeys} value={`${t.upTo} ${level.maxSharpsFlats} ${t.sharpsFlats}`} />
             </View>
 
-            <Label>מפתח</Label>
+            <Label>{t.chooseClef}</Label>
             <View style={s.row}>
               {CLEF_OPTIONS.map(opt => (
                 <TouchableOpacity
@@ -101,16 +120,16 @@ export default function HomeScreen() {
                   style={[s.pill, selectedClef === opt.value && s.pillActive]}
                   onPress={() => setSelectedClef(opt.value)}
                 >
-                  <Text style={[s.pillTxt, selectedClef === opt.value && s.pillTxtActive]}>{opt.label}</Text>
+                  <Text style={[s.pillTxt, selectedClef === opt.value && s.pillTxtActive]}>{t[opt.key]}</Text>
                 </TouchableOpacity>
               ))}
             </View>
 
             {selectedClef === 'both' && (
               <>
-                <Label>סדר נגינה</Label>
+                <Label>{t.playOrder}</Label>
                 <View style={s.modesCol}>
-                  {BOTH_MODE_OPTIONS.map(opt => (
+                  {BOTH_MODES.map(opt => (
                     <TouchableOpacity
                       key={opt.value}
                       style={[s.modeCard, bothMode === opt.value && { borderColor: C.primary, borderWidth: 2 }]}
@@ -131,7 +150,7 @@ export default function HomeScreen() {
               </>
             )}
 
-            <Label>מספר תווים</Label>
+            <Label>{t.noteCount}</Label>
             <View style={s.row}>
               {NOTE_COUNT_OPTIONS.map(n => (
                 <TouchableOpacity
@@ -147,12 +166,17 @@ export default function HomeScreen() {
         )}
 
         <TouchableOpacity style={s.startBtn} onPress={handleStart}>
-          <Text style={s.startBtnTxt}>{selectedMode === 'search' ? 'פתח חיפוש' : 'התחל'}</Text>
+          <Text style={s.startBtnTxt}>{selectedMode === 'search' ? t.openSearch : t.startBtn}</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={s.audioTestBtn} onPress={() => navigation.navigate('AudioTest')}>
-          <Text style={s.audioTestTxt}>🎤 בדיקת שמע</Text>
-        </TouchableOpacity>
+        <View style={s.bottomBtns}>
+          <TouchableOpacity style={s.secondaryBtn} onPress={() => navigation.navigate('Learning')}>
+            <Text style={s.secondaryTxt}>{t.learningBtn}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={s.secondaryBtn} onPress={() => navigation.navigate('AudioTest')}>
+            <Text style={s.secondaryTxt}>{t.audioTestBtn}</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -176,7 +200,15 @@ const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.bg },
   container: { padding: 24, paddingBottom: 48 },
   title: { fontSize: 30, fontWeight: '800', color: C.text, textAlign: 'center' },
-  subtitle: { fontSize: 13, color: C.muted, textAlign: 'center', marginBottom: 24 },
+  subtitle: { fontSize: 13, color: C.muted, textAlign: 'center', marginBottom: 12 },
+
+  langScroll: { marginBottom: 16 },
+  langRow: { flexDirection: 'row', gap: 6, paddingHorizontal: 2 },
+  langBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: C.card, borderWidth: 1.5, borderColor: C.border },
+  langBtnActive: { backgroundColor: C.primary, borderColor: C.primary },
+  langTxt: { fontSize: 12, fontWeight: '600', color: C.muted },
+  langTxtActive: { color: '#fff' },
+
   label: { fontSize: 12, fontWeight: '700', color: C.muted, textTransform: 'uppercase', letterSpacing: 1, marginTop: 20, marginBottom: 10 },
   modesCol: { gap: 8 },
   modeCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.card, borderRadius: 14, padding: 14, borderWidth: 1.5, borderColor: C.border, gap: 12 },
@@ -202,6 +234,7 @@ const s = StyleSheet.create({
   pillTxtActive: { color: '#fff' },
   startBtn: { marginTop: 32, backgroundColor: C.primary, borderRadius: 16, paddingVertical: 18, alignItems: 'center', shadowColor: C.primary, shadowOpacity: 0.35, shadowRadius: 10, shadowOffset: { width: 0, height: 5 }, elevation: 6 },
   startBtnTxt: { color: '#fff', fontSize: 17, fontWeight: '800' },
-  audioTestBtn: { marginTop: 12, paddingVertical: 12, alignItems: 'center' },
-  audioTestTxt: { color: C.muted, fontSize: 13, fontWeight: '600' },
+  bottomBtns: { marginTop: 12, flexDirection: 'row', gap: 10 },
+  secondaryBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 12, backgroundColor: C.card, borderWidth: 1.5, borderColor: C.border },
+  secondaryTxt: { color: C.muted, fontSize: 13, fontWeight: '600' },
 });

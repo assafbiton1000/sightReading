@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Animated, Easing, ScrollView, Alert,
+  View, Text, StyleSheet, TouchableOpacity, Animated, ScrollView, Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Audio } from 'expo-av';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -13,58 +14,42 @@ import { isNoteMatch, noteToFreq } from '../utils/musicTheory';
 import { DURATION_BEATS } from '../constants/notes';
 import { useMetronome } from '../utils/useMetronome';
 import { timbreSettings } from '../utils/timbreSettings';
-import SheetMusic, { NotePosition } from '../components/SheetMusic';
+import { buildSynthHtml } from '../utils/pianoSynthHtml';
+import SheetMusic from '../components/SheetMusic';
+import PlaybackCursor, { usePlaybackCursor } from '../components/PlaybackCursor';
 import PitchDetectorView, { PitchDetectorHandle } from '../components/PitchDetectorView';
 import { useLang } from '../context/LangContext';
+import { useSettings } from '../context/SettingsContext';
+import { useHistory } from '../context/HistoryContext';
+import { useTheme, useIsDark, ThemeColors } from '../utils/theme';
+import AppHeader from '../components/AppHeader';
 
 type Route = RouteProp<RootStackParamList, 'Practice'>;
 type Nav = StackNavigationProp<RootStackParamList, 'Practice'>;
 type NoteResult = 'correct' | 'wrong' | 'pending';
 type Phase = 'idle' | 'countdown' | 'playing' | 'done';
-
-function buildSynthHtml(brightness: number, sustain: number) {
-  return `<!DOCTYPE html><html><body><script>
-var _ctx=null,BR=${brightness},SU=${sustain};
-function _play(freq,dur){
-  if(!_ctx)_ctx=new(window.AudioContext||window.webkitAudioContext)();
-  var t=_ctx.currentTime,tc=Math.max(dur*0.3,SU);
-  var o1=_ctx.createOscillator(),g1=_ctx.createGain();
-  o1.type='sine';o1.frequency.value=freq;
-  g1.gain.setValueAtTime(0,t);g1.gain.linearRampToValueAtTime(0.68,t+0.007);
-  g1.gain.setTargetAtTime(0,t+0.007,tc);
-  o1.connect(g1);g1.connect(_ctx.destination);o1.start(t);o1.stop(t+tc*6+0.1);
-  var o2=_ctx.createOscillator(),g2=_ctx.createGain();
-  o2.type='sine';o2.frequency.value=freq*2;
-  g2.gain.setValueAtTime(0,t);g2.gain.linearRampToValueAtTime(BR*0.8,t+0.004);
-  g2.gain.setTargetAtTime(0,t+0.004,0.06);
-  o2.connect(g2);g2.connect(_ctx.destination);o2.start(t);o2.stop(t+0.5);
-  var o3=_ctx.createOscillator(),g3=_ctx.createGain();
-  o3.type='sine';o3.frequency.value=freq*3;
-  g3.gain.setValueAtTime(0,t);g3.gain.linearRampToValueAtTime(BR*0.35,t+0.003);
-  g3.gain.setTargetAtTime(0,t+0.003,0.025);
-  o3.connect(g3);g3.connect(_ctx.destination);o3.start(t);o3.stop(t+0.2);
-  var o4=_ctx.createOscillator(),g4=_ctx.createGain();
-  o4.type='sine';o4.frequency.value=freq*4;
-  g4.gain.setValueAtTime(0,t);g4.gain.linearRampToValueAtTime(BR*0.15,t+0.002);
-  g4.gain.setTargetAtTime(0,t+0.002,0.012);
-  o4.connect(g4);g4.connect(_ctx.destination);o4.start(t);o4.stop(t+0.12);
-  try{var sr=_ctx.sampleRate,len=Math.floor(sr*0.005),b=_ctx.createBuffer(1,len,sr),d=b.getChannelData(0);
-  for(var i=0;i<len;i++)d[i]=(Math.random()*2-1)*(1-i/len);
-  var s=_ctx.createBufferSource(),gn=_ctx.createGain();
-  gn.gain.value=0.035;s.buffer=b;s.connect(gn);gn.connect(_ctx.destination);s.start(t);}catch(e){}
-}
-function onMsg(e){try{var m=JSON.parse(e.data);if(m.cmd==='play')_play(m.freq,m.dur);}catch(_){}}
-document.addEventListener('message',onMsg);window.addEventListener('message',onMsg);
-</script></body></html>`;
-}
+type Styles = ReturnType<typeof makeStyles>;
 
 export default function PracticeScreen() {
   const route = useRoute<Route>();
   const navigation = useNavigation<Nav>();
-  const { levelId, clef, noteCount, bothMode } = route.params;
+  const { levelId, clef, noteCount, bothMode, song } = route.params;
   const level = LEVELS.find(l => l.id === levelId)!;
+  const bpm = song?.bpm ?? level.bpm;
   const isSimultaneous = clef === 'both' && bothMode === 'simultaneous';
   const { t } = useLang();
+  const { settings } = useSettings();
+  const { stats, recordSession } = useHistory();
+  const C = useTheme();
+  const isDark = useIsDark();
+  const styles = makeStyles(C);
+
+  // Tracks the latest streak/accuracy so Result can show what changed. Kept fresh on
+  // every render (not just mount) rather than snapshotted once, because "Try Again
+  // Same" navigates back to this exact screen instance instead of remounting it —
+  // a mount-only snapshot would go stale across repeated attempts in the same visit.
+  const statsRef = useRef(stats);
+  useEffect(() => { statsRef.current = stats; });
 
   // ── State ──────────────────────────────────────────────────────────
   const [notes, setNotes] = useState<GeneratedNote[]>([]);
@@ -87,12 +72,8 @@ export default function PracticeScreen() {
   const phaseRef = useRef<Phase>('idle');
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  // ── Cursor refs ────────────────────────────────────────────────────
-  const notePositionsRef = useRef<NotePosition[]>([]);
-  const cursorLineIdxRef = useRef(0);
-  const cursorXAnim = useRef(new Animated.Value(-100)).current;
-  const cursorSequenceRef = useRef<Animated.CompositeAnimation | null>(null);
-  const [cursorLineIdx, setCursorLineIdx] = useState(0);
+  // ── Playback cursor ───────────────────────────────────────────────
+  const [cursor, cursorXAnim, cursorLineIdx] = usePlaybackCursor();
   const synthHtml = useRef((() => { const t = timbreSettings.get(); return buildSynthHtml(t.brightness, t.sustain); })()).current;
 
   // Keep refs in sync
@@ -113,10 +94,10 @@ export default function PracticeScreen() {
     });
   }, []);
 
-  // ── Generate exercise ONCE on mount ────────────────────────────────
+  // ── Generate exercise ONCE on mount — or load a fixed song, if given ─
   function generateNewExercise() {
-    const generated = generateExercise(level, clef, noteCount, bothMode);
-    const keySig = getRandomKeySignature(level.maxSharpsFlats);
+    const generated = song ? song.notes : generateExercise(level, clef, noteCount, bothMode);
+    const keySig = song ? 'C' : getRandomKeySignature(level.maxSharpsFlats);
     const pending: NoteResult[] = generated.map(() => 'pending');
     setNotes(generated);
     notesRef.current = generated;
@@ -125,67 +106,41 @@ export default function PracticeScreen() {
     resultsRef.current = pending;
     setCurrentNoteIdx(-1);
     currentIdxRef.current = -1;
-    cursorXAnim.stopAnimation();
-    cursorXAnim.setValue(-100);
-    setCursorLineIdx(0);
-    cursorLineIdxRef.current = 0;
-    notePositionsRef.current = [];
+    cursor.reset();
+    cursor.setPositions([]);
   }
 
   useEffect(() => { generateNewExercise(); }, []);
 
   // ── Synth: play a note by frequency ────────────────────────────────
   function playSound(freq: number) {
+    // Read live (not the snapshot the WebView HTML was built with) so a Settings
+    // change to the piano sound theme takes effect on the very next note.
+    const { brightness, sustain } = timbreSettings.get();
     synthRef.current?.injectJavaScript(
-      `window.dispatchEvent(new MessageEvent('message',{data:${JSON.stringify(JSON.stringify({ cmd: 'play', freq, dur: 0.5 }))}}));true;`
+      `window.dispatchEvent(new MessageEvent('message',{data:${JSON.stringify(JSON.stringify({ cmd: 'play', freq, dur: 0.5, br: brightness, su: sustain }))}}));true;`
     );
   }
 
-  // ── Cursor: store VexFlow positions after SheetMusic renders ───────
-  const handleNotePositions = useCallback((positions: NotePosition[]) => {
-    notePositionsRef.current = positions;
-  }, []);
-
-  // ── Cursor: slide TO the note when it plays, wait there until next note ──
+  // ── Cursor: activate note `idx` — snaps there, then glides continuously
+  // toward the note that will become current next, timed to the actual tempo,
+  // so the cursor never stops moving mid-line. ─────────────────────────
   const activateNote = useCallback((idx: number) => {
     const ns = notesRef.current;
 
     // Play guide sound immediately
-    [idx, isSimultaneous ? idx + 1 : -1].forEach(i => {
-      if (i >= 0 && i < ns.length) ns[i].keys.forEach(k => playSound(noteToFreq(k)));
-    });
-
-    const moveCursor = () => {
-      const pos = notePositionsRef.current.find(p => p.idx === idx);
-      if (!pos) return;
-
-      if (pos.lineIdx !== cursorLineIdxRef.current) {
-        cursorLineIdxRef.current = pos.lineIdx;
-        setCursorLineIdx(pos.lineIdx);
-      }
-
-      cursorSequenceRef.current?.stop();
-      cursorXAnim.stopAnimation();
-      if (idx === 0) {
-        cursorXAnim.setValue(pos.x);
-      } else {
-        Animated.timing(cursorXAnim, {
-          toValue: pos.x,
-          duration: 80,
-          useNativeDriver: true,
-          easing: Easing.out(Easing.quad),
-        }).start();
-      }
-    };
-
-    // idx=0: cursor not visible yet (countdown), snap immediately — no delay needed
-    // idx>0: delay 80ms so WebView note-highlight renders before cursor arrives
-    if (idx === 0) {
-      moveCursor();
-    } else {
-      setTimeout(moveCursor, 80);
+    if (settings.audioFeedback) {
+      [idx, isSimultaneous ? idx + 1 : -1].forEach(i => {
+        if (i >= 0 && i < ns.length) ns[i].keys.forEach(k => playSound(noteToFreq(k)));
+      });
     }
-  }, [isSimultaneous]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const step = isSimultaneous ? 2 : 1;
+    const nextIdx = idx + step < ns.length ? idx + step : null;
+    const noteDurationBeats = DURATION_BEATS[ns[idx]?.duration] ?? 1;
+    const durationMs = (60 / bpm) * 1000 * noteDurationBeats;
+    cursor.activate(idx, nextIdx, durationMs);
+  }, [isSimultaneous, settings.audioFeedback, bpm, cursor]);
 
   // ── Highlighted indices (blue notes) ───────────────────────────────
   function getHighlighted(idx: number): number[] {
@@ -248,9 +203,15 @@ export default function PracticeScreen() {
         stopMetronome();
         pitchRef.current?.stop();
         setCurrentNoteIdx(-1);
-        cursorXAnim.stopAnimation();
+        cursor.reset();
         const correct = results.filter(r => r === 'correct').length;
-        setTimeout(() => navigation.navigate('Result', { correct, total: ns.length, levelId, clef, noteCount, bothMode }), 800);
+        const totalBeats = ns.reduce((sum, n) => sum + (DURATION_BEATS[n.duration] ?? 1), 0);
+        // Read the pre-session snapshot before recordSession updates it.
+        const { streak: prevStreak, avgAccuracy: prevAvgAccuracy } = statsRef.current;
+        recordSession({ mode: 'practice', minutes: totalBeats / bpm, correct, total: ns.length });
+        setTimeout(() => navigation.navigate('Result', {
+          correct, total: ns.length, levelId, clef, noteCount, bothMode, prevStreak, prevAvgAccuracy,
+        }), 800);
       } else {
         setCurrentNoteIdx(nextIdx);
         currentIdxRef.current = nextIdx;
@@ -259,9 +220,9 @@ export default function PracticeScreen() {
       }
     }
     beatCountRef.current += 1;
-  }, [isSimultaneous, activateNote]);
+  }, [isSimultaneous, activateNote, cursor]);
 
-  const { start: startMetronome, stop: stopMetronome } = useMetronome(level.bpm, handleTick, metronomeMuted);
+  const { start: startMetronome, stop: stopMetronome } = useMetronome(bpm, handleTick, metronomeMuted);
 
   // ── Start: resets results but KEEPS same notes ─────────────────────
   function handleStart() {
@@ -274,6 +235,20 @@ export default function PracticeScreen() {
     currentIdxRef.current = -1;
     beatCountRef.current = 0;
     noteStartBeatRef.current = 0;
+
+    if (!settings.countIn) {
+      // Skip the count-in: jump straight to playing the first note
+      phaseRef.current = 'playing';
+      setPhase('playing');
+      beatCountRef.current = 1;
+      setCurrentNoteIdx(0);
+      currentIdxRef.current = 0;
+      pitchRef.current?.start();
+      activateNote(0);
+      startMetronome();
+      return;
+    }
+
     setPhase('countdown');
     phaseRef.current = 'countdown';
     setCountdown(4);
@@ -286,10 +261,7 @@ export default function PracticeScreen() {
     setPhase('idle');
     phaseRef.current = 'idle';
     setCurrentNoteIdx(-1);
-    cursorXAnim.stopAnimation();
-    cursorXAnim.setValue(-100);
-    setCursorLineIdx(0);
-    cursorLineIdxRef.current = 0;
+    cursor.reset();
   }
 
   // ── Pitch detection — only marks notes correct/wrong, cursor drives advancement
@@ -314,14 +286,16 @@ export default function PracticeScreen() {
 
   const correctCount = noteResults.filter(r => r === 'correct').length;
   const wrongCount = noteResults.filter(r => r === 'wrong').length;
+  const displayResults: NoteResult[] = settings.liveErrorFeedback || phase === 'done'
+    ? noteResults
+    : noteResults.map(() => 'pending');
   const isGrand = notes.some(n => n.clef === 'treble') && notes.some(n => n.clef === 'bass');
-  const CURSOR_SYS_H = isGrand ? 200 : 120;
-  const CURSOR_H = isGrand ? 155 : 90;
 
   return (
     <SafeAreaView style={styles.safe}>
+      <AppHeader />
       {/* Hidden: pitch detector */}
-      <PitchDetectorView ref={pitchRef} onPitchDetected={handlePitch} />
+      <PitchDetectorView ref={pitchRef} onPitchDetected={handlePitch} sensitivity={settings.micSensitivity} />
       {/* Hidden: synth for note sound feedback */}
       <View style={styles.hidden}>
         <WebView ref={synthRef} source={{ html: synthHtml }} javaScriptEnabled originWhitelist={['*']}
@@ -334,20 +308,22 @@ export default function PracticeScreen() {
           <TouchableOpacity onPress={() => { handleStop(); navigation.goBack(); }}>
             <Text style={styles.back}>{t.back}</Text>
           </TouchableOpacity>
-          <Text style={styles.levelLabel}>{t.levelLabel} {levelId} · {level.nameHe}</Text>
+          <Text style={styles.levelLabel}>
+            {song ? song.name : `${t.levelLabel} ${levelId} · ${t.levelNames[level.id - 1]}`}
+          </Text>
         </View>
 
         {/* Score row */}
         <View style={styles.scoreRow}>
-          <ScoreChip label={t.correctLabel} count={correctCount} color="#22c55e" />
+          <ScoreChip label={t.correctLabel} count={correctCount} color="#22c55e" styles={styles} />
           <Animated.View style={[styles.beatDot, {
             transform: [{ scale: pulseAnim }],
-            backgroundColor: beatIndicator ? '#4F6EF7' : '#C4CAE0',
+            backgroundColor: beatIndicator ? C.primary : C.border,
           }]} />
           <TouchableOpacity onPress={() => setMetronomeMuted(m => !m)} style={styles.muteBtn}>
             <Text style={styles.muteBtnTxt}>{metronomeMuted ? '🔕' : '🔔'}</Text>
           </TouchableOpacity>
-          <ScoreChip label={t.wrongLabel} count={wrongCount} color="#ef4444" />
+          <ScoreChip label={t.wrongLabel} count={wrongCount} color="#ef4444" styles={styles} />
         </View>
 
         {/* Sheet music + cursor overlay */}
@@ -356,21 +332,22 @@ export default function PracticeScreen() {
             <SheetMusic
               notes={notes}
               highlightedIndices={getHighlighted(currentNoteIdx)}
-              noteResults={noteResults}
+              noteResults={displayResults}
               keySignature={keySignature}
               timeSignature={[4, 4]}
-              onNotePositions={handleNotePositions}
+              onNotePositions={cursor.setPositions}
+              colorfulNotes={settings.colorfulNotes}
+              staffScale={settings.staffSize}
+              darkMode={isDark}
             />
-            {phase === 'playing' && (
-              <Animated.View
-                pointerEvents="none"
-                style={[styles.cursor, {
-                  top: cursorLineIdx * CURSOR_SYS_H + 15,
-                  height: CURSOR_H,
-                  transform: [{ translateX: cursorXAnim }],
-                }]}
-              />
-            )}
+            <PlaybackCursor
+              cursorXAnim={cursorXAnim}
+              lineIdx={cursorLineIdx}
+              isGrand={isGrand}
+              staffScale={settings.staffSize}
+              color={C.primary}
+              visible={phase === 'playing'}
+            />
           </View>
         )}
 
@@ -407,13 +384,13 @@ export default function PracticeScreen() {
           )}
         </View>
 
-        <Text style={styles.bpmLabel}>{level.bpm} BPM · {keySignature}</Text>
+        <Text style={styles.bpmLabel}>{bpm} BPM · {keySignature}</Text>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-function ScoreChip({ label, count, color }: { label: string; count: number; color: string }) {
+function ScoreChip({ label, count, color, styles }: { label: string; count: number; color: string; styles: Styles }) {
   return (
     <View style={[styles.scoreChip, { borderColor: color }]}>
       <Text style={[styles.scoreCount, { color }]}>{count}</Text>
@@ -422,31 +399,30 @@ function ScoreChip({ label, count, color }: { label: string; count: number; colo
   );
 }
 
-const C = { bg: '#F5F7FA', card: '#fff', primary: '#4F6EF7', text: '#1A1D2E', muted: '#8A8FA8', border: '#E4E7F0' };
-
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: C.bg },
-  hidden: { width: 1, height: 1, opacity: 0 },
-  container: { padding: 16, paddingBottom: 32 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  back: { fontSize: 16, color: C.primary, fontWeight: '600' },
-  levelLabel: { fontSize: 13, color: C.muted, fontWeight: '600' },
-  scoreRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
-  scoreChip: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1.5, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6, backgroundColor: C.card },
-  scoreCount: { fontSize: 22, fontWeight: '800' },
-  scoreLbl: { fontSize: 12, color: C.muted, fontWeight: '600' },
-  beatDot: { width: 18, height: 18, borderRadius: 9 },
-  muteBtn: { padding: 4 },
-  muteBtnTxt: { fontSize: 18 },
-  countdownBox: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.88)', zIndex: 10 },
-  countdownText: { fontSize: 100, fontWeight: '900', color: C.primary },
-  progress: { textAlign: 'center', color: C.muted, fontSize: 13, marginTop: 10 },
-  btnArea: { marginTop: 24, gap: 10 },
-  startBtn: { backgroundColor: C.primary, borderRadius: 16, paddingVertical: 18, alignItems: 'center', shadowColor: C.primary, shadowOpacity: 0.4, shadowRadius: 10, shadowOffset: { width: 0, height: 5 }, elevation: 5 },
-  startBtnTxt: { color: '#fff', fontSize: 18, fontWeight: '800' },
-  newBtn: { backgroundColor: C.card, borderRadius: 16, paddingVertical: 14, alignItems: 'center', borderWidth: 1.5, borderColor: C.border },
-  newBtnTxt: { color: C.text, fontSize: 15, fontWeight: '600' },
-  stopBtn: { backgroundColor: '#ef4444', borderRadius: 16, paddingVertical: 18, alignItems: 'center' },
-  bpmLabel: { textAlign: 'center', color: C.muted, fontSize: 12, marginTop: 12 },
-  cursor: { position: 'absolute', width: 2.5, backgroundColor: '#4F6EF7', opacity: 0.7, borderRadius: 2 },
-});
+function makeStyles(C: ThemeColors) {
+  return StyleSheet.create({
+    safe: { flex: 1, backgroundColor: C.bg },
+    hidden: { width: 1, height: 1, opacity: 0 },
+    container: { padding: 16, paddingBottom: 32 },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+    back: { fontSize: 16, color: C.primary, fontWeight: '600' },
+    levelLabel: { fontSize: 13, color: C.muted, fontWeight: '600' },
+    scoreRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
+    scoreChip: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1.5, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6, backgroundColor: C.card },
+    scoreCount: { fontSize: 22, fontWeight: '800' },
+    scoreLbl: { fontSize: 12, color: C.muted, fontWeight: '600' },
+    beatDot: { width: 18, height: 18, borderRadius: 9 },
+    muteBtn: { padding: 4 },
+    muteBtnTxt: { fontSize: 18 },
+    countdownBox: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: C.overlay, zIndex: 10 },
+    countdownText: { fontSize: 100, fontWeight: '900', color: C.primary },
+    progress: { textAlign: 'center', color: C.muted, fontSize: 13, marginTop: 10 },
+    btnArea: { marginTop: 24, gap: 10 },
+    startBtn: { backgroundColor: C.primary, borderRadius: 16, paddingVertical: 18, alignItems: 'center', shadowColor: C.primary, shadowOpacity: 0.4, shadowRadius: 10, shadowOffset: { width: 0, height: 5 }, elevation: 5 },
+    startBtnTxt: { color: '#fff', fontSize: 18, fontWeight: '800' },
+    newBtn: { backgroundColor: C.card, borderRadius: 16, paddingVertical: 14, alignItems: 'center', borderWidth: 1.5, borderColor: C.border },
+    newBtnTxt: { color: C.text, fontSize: 15, fontWeight: '600' },
+    stopBtn: { backgroundColor: '#ef4444', borderRadius: 16, paddingVertical: 18, alignItems: 'center' },
+    bpmLabel: { textAlign: 'center', color: C.muted, fontSize: 12, marginTop: 12 },
+  });
+}

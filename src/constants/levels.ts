@@ -4,7 +4,6 @@ export type NoteDuration = 'w' | 'h' | 'q' | '8';
 export interface Level {
   id: number;
   name: string;
-  nameHe: string;
   bpm: number;
   clefs: Clef[];
   durations: NoteDuration[];
@@ -19,7 +18,6 @@ export const LEVELS: Level[] = [
   {
     id: 1,
     name: 'Absolute Beginner',
-    nameHe: 'מתחיל מוחלט',
     bpm: 60,
     clefs: ['treble'],
     durations: ['q'],
@@ -32,7 +30,6 @@ export const LEVELS: Level[] = [
   {
     id: 2,
     name: 'Beginner',
-    nameHe: 'מתחיל',
     bpm: 65,
     clefs: ['treble'],
     durations: ['q', 'h'],
@@ -45,7 +42,6 @@ export const LEVELS: Level[] = [
   {
     id: 3,
     name: 'Elementary',
-    nameHe: 'בסיסי',
     bpm: 70,
     clefs: ['treble'],
     durations: ['q', 'h', 'w'],
@@ -58,7 +54,6 @@ export const LEVELS: Level[] = [
   {
     id: 4,
     name: 'Elementary+',
-    nameHe: 'בסיסי+',
     bpm: 75,
     clefs: ['treble', 'bass'],
     durations: ['q', 'h', 'w', '8'],
@@ -71,7 +66,6 @@ export const LEVELS: Level[] = [
   {
     id: 5,
     name: 'Intermediate',
-    nameHe: 'בינוני',
     bpm: 80,
     clefs: ['treble', 'bass'],
     durations: ['q', 'h', '8'],
@@ -84,7 +78,6 @@ export const LEVELS: Level[] = [
   {
     id: 6,
     name: 'Intermediate+',
-    nameHe: 'בינוני+',
     bpm: 90,
     clefs: ['treble', 'bass', 'both'],
     durations: ['q', 'h', '8'],
@@ -97,7 +90,6 @@ export const LEVELS: Level[] = [
   {
     id: 7,
     name: 'Advanced',
-    nameHe: 'מתקדם',
     bpm: 100,
     clefs: ['treble', 'bass', 'both'],
     durations: ['q', 'h', '8', 'w'],
@@ -110,7 +102,6 @@ export const LEVELS: Level[] = [
   {
     id: 8,
     name: 'Expert',
-    nameHe: 'מומחה',
     bpm: 120,
     clefs: ['treble', 'bass', 'both'],
     durations: ['q', 'h', '8', 'w'],

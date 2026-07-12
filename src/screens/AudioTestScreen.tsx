@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Animated, ScrollView,
+  View, Text, StyleSheet, TouchableOpacity, Animated, ScrollView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Audio } from 'expo-av';
 import PitchDetectorView, { PitchDetectorHandle } from '../components/PitchDetectorView';
@@ -11,6 +12,9 @@ import { GeneratedNote } from '../utils/noteGenerator';
 import { timbreSettings } from '../utils/timbreSettings';
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import { useLang } from '../context/LangContext';
+import { useSettings } from '../context/SettingsContext';
+import { useTheme, useIsDark, ThemeColors } from '../utils/theme';
+import AppHeader from '../components/AppHeader';
 
 // Calibration WebView: listens 2.5s, measures harmonic brightness + sustain via FFT
 const CAL_HTML = `<!DOCTYPE html><html><body><script>
@@ -71,12 +75,6 @@ const NOTE_DISPLAY: Record<string, { name: string; octave: string }> = {
   'c/5': { name: 'C', octave: '5' },
 };
 
-// Hebrew note names so user understands what to play
-const NOTE_SOLFEGE: Record<string, string> = {
-  'c/4': 'דו', 'd/4': 'רה', 'e/4': 'מי', 'f/4': 'פה',
-  'g/4': 'סול', 'a/4': 'לה', 'b/4': 'סי', 'c/5': 'דו (גבוה)',
-};
-
 function pickOther(avoid: string): string {
   const opts = TEST_KEYS.filter(k => k !== avoid);
   return opts[Math.floor(Math.random() * opts.length)];
@@ -86,6 +84,10 @@ export default function AudioTestScreen() {
   const navigation = useNavigation();
   const pitchRef = useRef<PitchDetectorHandle>(null);
   const { t } = useLang();
+  const { settings } = useSettings();
+  const C = useTheme();
+  const isDark = useIsDark();
+  const s = makeStyles(C);
 
   const [currentKey, setCurrentKey] = useState('g/4');
   const [detected, setDetected] = useState(false);
@@ -179,12 +181,19 @@ export default function AudioTestScreen() {
   }
 
   const disp = NOTE_DISPLAY[currentKey] ?? { name: '?', octave: '' };
-  const solfege = NOTE_SOLFEGE[currentKey] ?? currentKey;
+  const SOLFEGE_MAP: Record<string, string> = {
+    c: t.noteC, d: t.noteD, e: t.noteE, f: t.noteF, g: t.noteG, a: t.noteA, b: t.noteB,
+  };
+  const letterLabel = `${disp.name}${disp.octave}`;
+  const solfegeLabel = SOLFEGE_MAP[currentKey.split('/')[0]] ?? currentKey;
+  const primaryLabel = settings.noteNaming === 'letters' ? letterLabel : solfegeLabel;
+  const secondaryLabel = settings.noteNaming === 'letters' ? solfegeLabel : letterLabel;
 
   const sheetNote: GeneratedNote = { keys: [currentKey], duration: 'w', clef: 'treble' };
 
   return (
     <SafeAreaView style={s.safe}>
+      <AppHeader />
       <ScrollView contentContainerStyle={s.container} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={s.header}>
@@ -207,6 +216,7 @@ export default function AudioTestScreen() {
           ref={pitchRef}
           onPitchDetected={handlePitch}
           onError={msg => { setMicError(msg); setMicStatus('error'); }}
+          sensitivity={settings.micSensitivity}
         />
 
         {/* Counter + status */}
@@ -230,13 +240,16 @@ export default function AudioTestScreen() {
             noteResults={[detected ? 'correct' : 'pending']}
             keySignature="C"
             timeSignature={[4, 4]}
+            colorfulNotes={settings.colorfulNotes}
+            staffScale={settings.staffSize}
+            darkMode={isDark}
           />
         </Animated.View>
 
         {/* Note name label below staff */}
         <View style={[s.noteLabel, detected && s.noteLabelGreen]}>
-          <Text style={[s.noteLetter, detected && { color: '#22c55e' }]}>{disp.name}{disp.octave}</Text>
-          <Text style={s.noteSolfege}>{solfege}</Text>
+          <Text style={[s.noteLetter, detected && { color: '#22c55e' }]}>{primaryLabel}</Text>
+          <Text style={s.noteSolfege}>{secondaryLabel}</Text>
         </View>
 
         {/* Instruction */}
@@ -277,46 +290,43 @@ export default function AudioTestScreen() {
   );
 }
 
-const C = {
-  bg: '#F5F7FA', card: '#fff', primary: '#4F6EF7', green: '#22c55e',
-  text: '#1A1D2E', muted: '#8A8FA8', border: '#E4E7F0',
-};
+function makeStyles(C: ThemeColors) {
+  return StyleSheet.create({
+    safe: { flex: 1, backgroundColor: C.bg },
+    container: { flex: 1, padding: 20 },
+    header: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 24 },
+    back: { fontSize: 16, color: C.primary, fontWeight: '600' },
+    title: { fontSize: 18, fontWeight: '800', color: C.text },
 
-const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: C.bg },
-  container: { flex: 1, padding: 20 },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 24 },
-  back: { fontSize: 16, color: C.primary, fontWeight: '600' },
-  title: { fontSize: 18, fontWeight: '800', color: C.text },
+    topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 },
+    counterBox: { alignItems: 'center', backgroundColor: C.card, borderRadius: 14, paddingHorizontal: 22, paddingVertical: 10, borderWidth: 1.5, borderColor: C.border },
+    counterNum: { fontSize: 38, fontWeight: '900', color: C.primary },
+    counterLbl: { fontSize: 11, color: C.muted, fontWeight: '600' },
+    badge: { borderRadius: 20, paddingHorizontal: 18, paddingVertical: 10 },
+    badgeBlue: { backgroundColor: C.primaryTint },
+    badgeGreen: { backgroundColor: 'rgba(34,197,94,0.18)' },
+    badgeTxt: { fontSize: 15, fontWeight: '700', color: C.text },
 
-  topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 },
-  counterBox: { alignItems: 'center', backgroundColor: C.card, borderRadius: 14, paddingHorizontal: 22, paddingVertical: 10, borderWidth: 1.5, borderColor: C.border },
-  counterNum: { fontSize: 38, fontWeight: '900', color: C.primary },
-  counterLbl: { fontSize: 11, color: C.muted, fontWeight: '600' },
-  badge: { borderRadius: 20, paddingHorizontal: 18, paddingVertical: 10 },
-  badgeBlue: { backgroundColor: '#EEF2FF' },
-  badgeGreen: { backgroundColor: '#DCFCE7' },
-  badgeTxt: { fontSize: 15, fontWeight: '700', color: C.text },
+    noteLabel: {
+      flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center',
+      gap: 10, paddingVertical: 10, marginBottom: 4,
+    },
+    noteLabelGreen: {},
+    noteLetter: { fontSize: 36, fontWeight: '900', color: C.primary },
+    noteSolfege: { fontSize: 20, color: C.muted, fontWeight: '600' },
 
-  noteLabel: {
-    flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center',
-    gap: 10, paddingVertical: 10, marginBottom: 4,
-  },
-  noteLabelGreen: {},
-  noteLetter: { fontSize: 36, fontWeight: '900', color: C.primary },
-  noteSolfege: { fontSize: 20, color: C.muted, fontWeight: '600' },
+    hint: { textAlign: 'center', color: C.muted, fontSize: 13, marginBottom: 24 },
 
-  hint: { textAlign: 'center', color: C.muted, fontSize: 13, marginBottom: 24 },
-
-  debugBox: { backgroundColor: C.card, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: C.border },
-  debugTitle: { fontSize: 11, color: C.muted, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 },
-  freqTxt: { fontSize: 14, color: C.text, fontWeight: '600' },
-  mutedTxt: { fontSize: 13, color: C.muted },
-  errTxt: { fontSize: 13, color: '#ef4444', fontWeight: '600' },
-  barTrack: { height: 8, backgroundColor: C.border, borderRadius: 4, overflow: 'hidden', marginTop: 10 },
-  barFill: { height: 8, backgroundColor: C.primary, borderRadius: 4 },
-  calBtn: { borderRadius: 14, paddingVertical: 14, alignItems: 'center', backgroundColor: '#EEF2FF', borderWidth: 1.5, borderColor: C.primary, marginBottom: 10 },
-  calBtnActive: { backgroundColor: '#E0E7FF' },
-  calBtnTxt: { fontSize: 14, fontWeight: '700', color: C.primary },
-  calHint: { textAlign: 'center', color: C.muted, fontSize: 12, marginBottom: 10 },
-});
+    debugBox: { backgroundColor: C.card, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: C.border },
+    debugTitle: { fontSize: 11, color: C.muted, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 },
+    freqTxt: { fontSize: 14, color: C.text, fontWeight: '600' },
+    mutedTxt: { fontSize: 13, color: C.muted },
+    errTxt: { fontSize: 13, color: '#ef4444', fontWeight: '600' },
+    barTrack: { height: 8, backgroundColor: C.border, borderRadius: 4, overflow: 'hidden', marginTop: 10 },
+    barFill: { height: 8, backgroundColor: C.primary, borderRadius: 4 },
+    calBtn: { borderRadius: 14, paddingVertical: 14, alignItems: 'center', backgroundColor: C.primaryTint, borderWidth: 1.5, borderColor: C.primary, marginBottom: 10 },
+    calBtnActive: { backgroundColor: C.chipBg },
+    calBtnTxt: { fontSize: 14, fontWeight: '700', color: C.primary },
+    calHint: { textAlign: 'center', color: C.muted, fontSize: 12, marginBottom: 10 },
+  });
+}

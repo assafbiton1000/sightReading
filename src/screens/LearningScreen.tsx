@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Animated, ScrollView,
+  View, Text, StyleSheet, TouchableOpacity, Animated, ScrollView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Audio } from 'expo-av';
 import PitchDetectorView, { PitchDetectorHandle } from '../components/PitchDetectorView';
@@ -9,6 +10,10 @@ import SheetMusic from '../components/SheetMusic';
 import { isNoteMatch } from '../utils/musicTheory';
 import { GeneratedNote } from '../utils/noteGenerator';
 import { useLang } from '../context/LangContext';
+import { useSettings } from '../context/SettingsContext';
+import { useHistory } from '../context/HistoryContext';
+import { useTheme, useIsDark, ThemeColors } from '../utils/theme';
+import AppHeader from '../components/AppHeader';
 
 type Clef = 'treble' | 'bass';
 
@@ -37,11 +42,16 @@ export default function LearningScreen() {
   const navigation = useNavigation();
   const pitchRef = useRef<PitchDetectorHandle>(null);
   const { t } = useLang();
+  const { settings } = useSettings();
+  const { recordSession } = useHistory();
+  const theme = useTheme();
+  const isDark = useIsDark();
+  const C = { ...theme, primary: '#8b5cf6' }; // Learning keeps its own purple accent
+  const s = makeStyles(C);
 
-  const NOTE_NAME: Record<string, string> = {
-    c: t.noteC, d: t.noteD, e: t.noteE,
-    f: t.noteF, g: t.noteG, a: t.noteA, b: t.noteB,
-  };
+  const NOTE_NAME: Record<string, string> = settings.noteNaming === 'letters'
+    ? { c: 'C', d: 'D', e: 'E', f: 'F', g: 'G', a: 'A', b: 'B' }
+    : { c: t.noteC, d: t.noteD, e: t.noteE, f: t.noteF, g: t.noteG, a: t.noteA, b: t.noteB };
 
   const [clef, setClef] = useState<Clef>('treble');
   const clefRef = useRef<Clef>('treble');
@@ -75,6 +85,17 @@ export default function LearningScreen() {
     return () => {
       cancelled = true;
       pitchRef.current?.stop();
+    };
+  }, []);
+
+  // Learning has no fixed tempo/session end like Practice or Playback, so wall-clock
+  // time is the only sensible way to measure it — record elapsed time on unmount,
+  // skipping brief accidental visits (< 20s) so they don't pad the streak/time stats.
+  useEffect(() => {
+    const startedAt = Date.now();
+    return () => {
+      const minutes = (Date.now() - startedAt) / 60000;
+      if (minutes >= 1 / 3) recordSession({ mode: 'learning', minutes });
     };
   }, []);
 
@@ -125,12 +146,13 @@ export default function LearningScreen() {
 
   const bgColor = bgAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: ['#F5F7FA', '#dcfce7'],
+    outputRange: [C.bg, isDark ? '#1B3B2A' : '#dcfce7'],
   });
 
   return (
     <SafeAreaView style={s.safe}>
-      <PitchDetectorView ref={pitchRef} onPitchDetected={handlePitch} />
+      <AppHeader />
+      <PitchDetectorView ref={pitchRef} onPitchDetected={handlePitch} sensitivity={settings.micSensitivity} />
 
       <ScrollView contentContainerStyle={s.container} showsVerticalScrollIndicator={false}>
         <View style={s.header}>
@@ -180,6 +202,9 @@ export default function LearningScreen() {
             noteResults={[detected ? 'correct' : 'pending']}
             keySignature="C"
             timeSignature={[4, 4]}
+            colorfulNotes={settings.colorfulNotes}
+            staffScale={settings.staffSize}
+            darkMode={isDark}
           />
         </Animated.View>
 
@@ -209,39 +234,36 @@ export default function LearningScreen() {
   );
 }
 
-const C = {
-  bg: '#F5F7FA', card: '#fff', primary: '#8b5cf6',
-  text: '#1A1D2E', muted: '#8A8FA8', border: '#E4E7F0',
-};
+function makeStyles(C: ThemeColors) {
+  return StyleSheet.create({
+    safe: { flex: 1, backgroundColor: C.bg },
+    container: { padding: 20, paddingBottom: 40 },
+    header: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 20 },
+    back: { fontSize: 16, color: C.primary, fontWeight: '600' },
+    title: { fontSize: 18, fontWeight: '800', color: C.text },
 
-const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: C.bg },
-  container: { padding: 20, paddingBottom: 40 },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 20 },
-  back: { fontSize: 16, color: C.primary, fontWeight: '600' },
-  title: { fontSize: 18, fontWeight: '800', color: C.text },
+    clefRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
+    clefBtn: { flex: 1, paddingVertical: 12, borderRadius: 12, backgroundColor: C.card, borderWidth: 1.5, borderColor: C.border, alignItems: 'center' },
+    clefBtnActive: { backgroundColor: C.primary, borderColor: C.primary },
+    clefBtnTxt: { fontSize: 14, fontWeight: '700', color: C.text },
+    clefBtnTxtActive: { color: '#fff' },
 
-  clefRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
-  clefBtn: { flex: 1, paddingVertical: 12, borderRadius: 12, backgroundColor: C.card, borderWidth: 1.5, borderColor: C.border, alignItems: 'center' },
-  clefBtnActive: { backgroundColor: C.primary, borderColor: C.primary },
-  clefBtnTxt: { fontSize: 14, fontWeight: '700', color: C.text },
-  clefBtnTxtActive: { color: '#fff' },
+    topRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16 },
+    statBox: { alignItems: 'center', backgroundColor: C.card, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 8, borderWidth: 1.5, borderColor: C.primary },
+    statNum: { fontSize: 28, fontWeight: '900', color: C.primary },
+    statLbl: { fontSize: 10, color: C.muted, fontWeight: '600' },
+    badge: { flex: 1, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 10, alignItems: 'center' },
+    badgeBlue: { backgroundColor: C.primaryTint },
+    badgeGreen: { backgroundColor: 'rgba(34,197,94,0.18)' },
+    badgeTxt: { fontSize: 14, fontWeight: '700', color: C.text },
 
-  topRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16 },
-  statBox: { alignItems: 'center', backgroundColor: C.card, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 8, borderWidth: 1.5, borderColor: C.primary },
-  statNum: { fontSize: 28, fontWeight: '900', color: C.primary },
-  statLbl: { fontSize: 10, color: C.muted, fontWeight: '600' },
-  badge: { flex: 1, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 10, alignItems: 'center' },
-  badgeBlue: { backgroundColor: '#EEF2FF' },
-  badgeGreen: { backgroundColor: '#DCFCE7' },
-  badgeTxt: { fontSize: 14, fontWeight: '700', color: C.text },
+    noteLabel: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', gap: 6, paddingVertical: 12, borderRadius: 16, marginBottom: 8 },
+    noteName: { fontSize: 42, fontWeight: '900', color: C.primary },
+    noteOctave: { fontSize: 22, color: C.muted, fontWeight: '600' },
 
-  noteLabel: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', gap: 6, paddingVertical: 12, borderRadius: 16, marginBottom: 8 },
-  noteName: { fontSize: 42, fontWeight: '900', color: C.primary },
-  noteOctave: { fontSize: 22, color: C.muted, fontWeight: '600' },
+    hint: { textAlign: 'center', color: C.muted, fontSize: 13, marginBottom: 20 },
 
-  hint: { textAlign: 'center', color: C.muted, fontSize: 13, marginBottom: 20 },
-
-  skipBtn: { alignSelf: 'center', paddingHorizontal: 24, paddingVertical: 10, borderRadius: 20, backgroundColor: C.card, borderWidth: 1.5, borderColor: C.border },
-  skipTxt: { color: C.muted, fontSize: 14, fontWeight: '600' },
-});
+    skipBtn: { alignSelf: 'center', paddingHorizontal: 24, paddingVertical: 10, borderRadius: 20, backgroundColor: C.card, borderWidth: 1.5, borderColor: C.border },
+    skipTxt: { color: C.muted, fontSize: 14, fontWeight: '600' },
+  });
+}

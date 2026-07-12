@@ -1,35 +1,111 @@
 import 'react-native-gesture-handler';
-import React from 'react';
+import React, { useEffect } from 'react';
+import { View, ActivityIndicator, Alert } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import {
+  useFonts,
+  Heebo_400Regular,
+  Heebo_500Medium,
+  Heebo_600SemiBold,
+  Heebo_700Bold,
+  Heebo_800ExtraBold,
+} from '@expo-google-fonts/heebo';
 import { RootStackParamList } from './src/navigation/types';
 import HomeScreen from './src/screens/HomeScreen';
 import PracticeScreen from './src/screens/PracticeScreen';
 import PlaybackScreen from './src/screens/PlaybackScreen';
-import SearchScreen from './src/screens/SearchScreen';
+import SongLibraryScreen from './src/screens/SongLibraryScreen';
 import ResultScreen from './src/screens/ResultScreen';
 import AudioTestScreen from './src/screens/AudioTestScreen';
 import LearningScreen from './src/screens/LearningScreen';
-import { LangProvider } from './src/context/LangContext';
+import SettingsScreen from './src/screens/SettingsScreen';
+import StatisticsScreen from './src/screens/StatisticsScreen';
+import { LangProvider, useLang } from './src/context/LangContext';
+import { SettingsProvider, useSettings } from './src/context/SettingsContext';
+import { HistoryProvider } from './src/context/HistoryContext';
+import { LIGHT_THEME, DARK_THEME } from './src/utils/theme';
+import { syncDailyReminder } from './src/utils/dailyReminder';
 
 const Stack = createStackNavigator<RootStackParamList>();
 
-export default function App() {
+// Rendered inside SettingsProvider so it can react to the dark-mode setting —
+// switches the status bar icon color and the native screen-transition background.
+function AppContent() {
+  const { settings, loaded } = useSettings();
+  const { t, lang } = useLang();
+  const theme = settings.darkMode ? DARK_THEME : LIGHT_THEME;
+  const navTheme = {
+    dark: settings.darkMode,
+    colors: {
+      primary: theme.primary,
+      background: theme.bg,
+      card: theme.card,
+      text: theme.text,
+      border: theme.border,
+      notification: theme.primary,
+    },
+  };
+
+  // Keeps the OS-scheduled daily reminder in sync with the Settings toggle/time —
+  // reruns (cancel + reschedule, or cancel) whenever either changes, or the
+  // language changes (so the notification text follows it).
+  useEffect(() => {
+    if (!loaded) return;
+    syncDailyReminder(settings.dailyReminder, settings.dailyReminderTime, t.dailyReminderNotifTitle, t.dailyReminderNotifBody)
+      .then(result => {
+        if (result === 'permission-denied') {
+          Alert.alert(t.dailyReminderLabel, t.notifPermissionDeniedMsg);
+        }
+      });
+  }, [loaded, settings.dailyReminder, settings.dailyReminderTime, lang]);
+
   return (
-    <LangProvider>
-    <NavigationContainer>
-      <StatusBar style="dark" />
+    <NavigationContainer theme={navTheme}>
+      <StatusBar style={settings.darkMode ? 'light' : 'dark'} />
       <Stack.Navigator initialRouteName="Home" screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Home" component={HomeScreen} />
         <Stack.Screen name="Practice" component={PracticeScreen} />
         <Stack.Screen name="Playback" component={PlaybackScreen} />
-        <Stack.Screen name="Search" component={SearchScreen} />
+        <Stack.Screen name="SongLibrary" component={SongLibraryScreen} />
         <Stack.Screen name="Result" component={ResultScreen} />
         <Stack.Screen name="AudioTest" component={AudioTestScreen} />
         <Stack.Screen name="Learning" component={LearningScreen} />
+        <Stack.Screen name="Settings" component={SettingsScreen} />
+        <Stack.Screen name="Statistics" component={StatisticsScreen} />
       </Stack.Navigator>
     </NavigationContainer>
+  );
+}
+
+export default function App() {
+  const [fontsLoaded] = useFonts({
+    Heebo_400Regular,
+    Heebo_500Medium,
+    Heebo_600SemiBold,
+    Heebo_700Bold,
+    Heebo_800ExtraBold,
+  });
+
+  if (!fontsLoaded) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F7F7FB' }}>
+        <ActivityIndicator size="large" color="#4F6EF7" />
+      </View>
+    );
+  }
+
+  return (
+    <SafeAreaProvider>
+    <SettingsProvider>
+    <HistoryProvider>
+    <LangProvider>
+      <AppContent />
     </LangProvider>
+    </HistoryProvider>
+    </SettingsProvider>
+    </SafeAreaProvider>
   );
 }

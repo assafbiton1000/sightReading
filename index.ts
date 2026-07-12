@@ -1,3 +1,6 @@
+// Must be the first import so the ignore patterns are registered before
+// expo-notifications' import side effects fire the Expo Go push warning.
+import './src/utils/ignoreWarnings';
 import { registerRootComponent } from 'expo';
 
 import App from './App';

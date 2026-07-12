@@ -1,8 +1,9 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { Audio } from 'expo-av';
 
-// Wood-block style click: noise burst + tone, fast exponential decay
-function generateClickWavBase64(): string {
+// Wood-block style click: noise burst + tone, fast exponential decay.
+// Parametrized so the accented (bar-opening) click can be brighter and louder.
+function generateClickWavBase64(tone1Hz: number, tone2Hz: number, gain: number): string {
   const sampleRate = 44100;
   const numSamples = Math.floor(sampleRate * 0.08); // 80ms
   const buffer = new ArrayBuffer(44 + numSamples * 2);
@@ -27,10 +28,10 @@ function generateClickWavBase64(): string {
     // Fast attack, exponential decay
     const env = Math.exp(-t * 60);
     // Mix: high-freq tone (wood character) + noise transient
-    const tone1 = Math.sin(2 * Math.PI * 1800 * t) * 0.6;
-    const tone2 = Math.sin(2 * Math.PI * 3200 * t) * 0.3 * Math.exp(-t * 120);
+    const tone1 = Math.sin(2 * Math.PI * tone1Hz * t) * 0.6;
+    const tone2 = Math.sin(2 * Math.PI * tone2Hz * t) * 0.3 * Math.exp(-t * 120);
     const noise = rand() * 0.4 * Math.exp(-t * 200); // very short noise burst
-    const sample = (tone1 + tone2 + noise) * env;
+    const sample = (tone1 + tone2 + noise) * env * gain;
     // Hard clip for "punch"
     const clipped = Math.max(-1, Math.min(1, sample * 1.4));
     view.setInt16(44 + i * 2, Math.round(clipped * 32000), true);
@@ -42,34 +43,53 @@ function generateClickWavBase64(): string {
   return 'data:audio/wav;base64,' + btoa(bin);
 }
 
-const CLICK_URI = generateClickWavBase64();
+const CLICK_URI = generateClickWavBase64(1800, 3200, 1);
+const ACCENT_URI = generateClickWavBase64(2400, 4200, 1.2);
 
-export function useMetronome(bpm: number, onTick: (beat: number) => void, muted = false) {
+export interface MetronomeOptions {
+  /** Click loudness, 0..1. Read live — a settings change applies on the next click. */
+  volume?: number;
+  /** Accent the first beat of every N beats (4 for 4/4). 0/undefined = no accent. */
+  accentEvery?: number;
+  /** Optional per-beat callback. The practice screen deliberately does NOT use
+   * this — its metronome is an audio aid only and must never touch the engine. */
+  onTick?: (beat: number) => void;
+}
+
+export function useMetronome(bpm: number, opts: MetronomeOptions = {}) {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const beatRef = useRef(0);
-  const onTickRef = useRef(onTick);
-  const soundRef = useRef<Audio.Sound | null>(null);
-  const mutedRef = useRef(muted);
-  onTickRef.current = onTick;
-  mutedRef.current = muted;
+  const clickRef = useRef<Audio.Sound | null>(null);
+  const accentRef = useRef<Audio.Sound | null>(null);
+  const optsRef = useRef(opts);
+  optsRef.current = opts;
 
   useEffect(() => {
     Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
-    Audio.Sound.createAsync({ uri: CLICK_URI }).then(({ sound }) => {
-      soundRef.current = sound;
-    });
-    return () => { soundRef.current?.unloadAsync(); };
+    Audio.Sound.createAsync({ uri: CLICK_URI }).then(({ sound }) => { clickRef.current = sound; });
+    Audio.Sound.createAsync({ uri: ACCENT_URI }).then(({ sound }) => { accentRef.current = sound; });
+    return () => {
+      clickRef.current?.unloadAsync();
+      accentRef.current?.unloadAsync();
+    };
   }, []);
 
   const start = useCallback(() => {
     beatRef.current = 0;
     const ms = (60 / bpm) * 1000;
     intervalRef.current = setInterval(async () => {
-      if (!mutedRef.current) {
-        const sound = soundRef.current;
-        if (sound) { await sound.setPositionAsync(0); await sound.playAsync(); }
+      const { volume = 1, accentEvery = 0, onTick } = optsRef.current;
+      const beat = beatRef.current;
+      const isAccent = accentEvery > 0 && beat % accentEvery === 0;
+      const sound = isAccent ? accentRef.current : clickRef.current;
+      if (sound && volume > 0) {
+        try {
+          await sound.setVolumeAsync(Math.max(0, Math.min(1, volume)));
+          await sound.setPositionAsync(0);
+          await sound.playAsync();
+        } catch {}
       }
-      onTickRef.current(beatRef.current);
+      onTick?.(beat);
       beatRef.current += 1;
     }, ms);
   }, [bpm]);

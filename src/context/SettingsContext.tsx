@@ -5,18 +5,22 @@ import { timbreSettings } from '../utils/timbreSettings';
 
 export type AudioInputSource = 'mic' | 'midi';
 export type NoteNamingStyle = 'letters' | 'solfege';
+export type DisappearingTiming = 'delayed' | 'onEntry' | 'afterEnd';
 
 export interface AppSettings {
   audioInputSource: AudioInputSource;
   micSensitivity: number;      // 0..1, higher = picks up quieter sounds
-  audioFeedback: boolean;      // play a piano sound when a note is hit correctly
   pianoSoundTheme: PianoSoundThemeId; // Pop / Classic / Rock / Soft synth timbre preset
   noteNaming: NoteNamingStyle; // C-D-E vs Do-Re-Mi
   colorfulNotes: boolean;      // color notes by pitch instead of by state only
   staffSize: number;           // 0.8..1.3 scale factor for the staff
   darkMode: boolean;           // switches the whole app's color theme
-  countIn: boolean;            // 4-beat countdown before practice starts
-  liveErrorFeedback: boolean;  // show correct/wrong per-note in real time vs only at the end
+  metronomeEnabled: boolean;   // optional click during practice — an audio aid only, never touches analysis/score
+  metronomeBpm: number;        // 40..200
+  metronomeVolume: number;     // 0..1
+  metronomeAccent: boolean;    // accent the first beat of every 4/4 bar
+  disappearingMeasures: boolean;          // hide each measure's notes mid-practice to force reading ahead
+  disappearingMeasuresTiming: DisappearingTiming; // when a measure vanishes: 2 beats in / on entry / when done
   dailyReminder: boolean;      // preference only — no notification is scheduled yet
   dailyReminderTime: string;   // "HH:MM"
 }
@@ -24,14 +28,17 @@ export interface AppSettings {
 export const DEFAULT_SETTINGS: AppSettings = {
   audioInputSource: 'mic',
   micSensitivity: 0.5,
-  audioFeedback: true,
   pianoSoundTheme: 'pop',
   noteNaming: 'solfege',
   colorfulNotes: false,
   staffSize: 1,
   darkMode: false,
-  countIn: true,
-  liveErrorFeedback: true,
+  metronomeEnabled: false,
+  metronomeBpm: 80,
+  metronomeVolume: 0.7,
+  metronomeAccent: true,
+  disappearingMeasures: false,
+  disappearingMeasuresTiming: 'delayed',
   dailyReminder: false,
   dailyReminderTime: '18:00',
 };

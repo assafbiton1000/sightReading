@@ -7,6 +7,7 @@ import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../navigation/types';
 import { useLang } from '../context/LangContext';
+import { useProfile } from '../context/ProfileContext';
 import { useTheme, ThemeColors } from '../utils/theme';
 
 type Nav = StackNavigationProp<RootStackParamList>;
@@ -25,11 +26,13 @@ interface DrawerItem {
 export default function SideDrawer({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const navigation = useNavigation<Nav>();
   const { t } = useLang();
+  const { profile, logout } = useProfile();
   const C = useTheme();
   const s = makeStyles(C);
   const translateX = useRef(new Animated.Value(-DRAWER_W)).current;
   const backdropOpacity = useRef(new Animated.Value(0)).current;
   const [mounted, setMounted] = useState(visible);
+  const [confirmLogout, setConfirmLogout] = useState(false);
 
   useEffect(() => {
     if (visible) {
@@ -48,7 +51,7 @@ export default function SideDrawer({ visible, onClose }: { visible: boolean; onC
 
   if (!mounted) return null;
 
-  function go(screen: 'Home' | 'Learning' | 'Settings' | 'Statistics') {
+  function go(screen: 'Home' | 'Learning' | 'Settings' | 'Statistics' | 'Help' | 'About' | 'Profile') {
     onClose();
     navigation.navigate(screen);
   }
@@ -59,13 +62,15 @@ export default function SideDrawer({ visible, onClose }: { visible: boolean; onC
     { key: 'stats',    label: t.drawerStats,          icon: 'bar-chart-2', onPress: () => go('Statistics') },
     { key: 'training', label: t.drawerTrainingModes,  icon: 'target',        onPress: () => go('Home') },
     { key: 'learning', label: t.drawerLearning,       icon: 'book-open',     onPress: () => go('Learning') },
-    { key: 'help',     label: t.drawerHelp,           icon: 'help-circle' },
-    { key: 'about',    label: t.drawerAbout,          icon: 'info' },
+    { key: 'help',     label: t.drawerHelp,           icon: 'help-circle',   onPress: () => go('Help') },
+    { key: 'about',    label: t.drawerAbout,          icon: 'info',          onPress: () => go('About') },
   ];
 
   const bottomItems: DrawerItem[] = [
-    { key: 'profile', label: t.drawerProfile, icon: 'user' },
-    { key: 'logout',  label: t.drawerLogout,  icon: 'log-out' },
+    { key: 'profile', label: profile ? profile.name : t.drawerProfile, icon: 'user', onPress: () => go('Profile') },
+    // Signed in: confirm-and-logout. Signed out: there's nothing to log out of,
+    // so lead to the Profile screen's sign-in form instead of a dead row.
+    { key: 'logout',  label: t.drawerLogout,  icon: 'log-out', onPress: profile ? () => setConfirmLogout(true) : () => go('Profile') },
   ];
 
   return (
@@ -100,15 +105,37 @@ export default function SideDrawer({ visible, onClose }: { visible: boolean; onC
             ))}
           </View>
 
-          <View style={s.spacer} />
-
           <View style={s.divider} />
           <View style={s.list}>
             {bottomItems.map(item => (
               <DrawerRow key={item.key} item={item} active={false} C={C} s={s} />
             ))}
           </View>
+
+          <View style={s.spacer} />
         </Animated.View>
+
+        {/* Logout confirmation — drawn as an overlay inside this Modal rather than a
+            nested Modal, which iOS can't present while the drawer's Modal is open. */}
+        {confirmLogout && (
+          <View style={s.confirmWrap}>
+            <View style={s.confirmCard}>
+              <Text style={s.confirmTxt}>{t.logoutConfirmMsg}</Text>
+              <View style={s.confirmBtns}>
+                <TouchableOpacity style={s.confirmCancel} onPress={() => setConfirmLogout(false)} activeOpacity={0.8}>
+                  <Text style={s.confirmCancelTxt}>{t.cancelBtn}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={s.confirmLogout}
+                  onPress={() => { setConfirmLogout(false); logout(); onClose(); }}
+                  activeOpacity={0.85}
+                >
+                  <Text style={s.confirmLogoutTxt}>{t.drawerLogout}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        )}
       </View>
     </Modal>
   );
@@ -159,7 +186,7 @@ function makeStyles(C: ThemeColors) {
 
     list: { gap: 4 },
     spacer: { flex: 1, minHeight: 12 },
-    divider: { height: 1, backgroundColor: C.border, marginBottom: 8, marginHorizontal: 8 },
+    divider: { height: 1, backgroundColor: C.border, marginTop: 10, marginBottom: 8, marginHorizontal: 8 },
 
     row: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 11, paddingHorizontal: 10, borderRadius: 14 },
     rowActive: { backgroundColor: C.primary },
@@ -167,5 +194,20 @@ function makeStyles(C: ThemeColors) {
     rowTxt: { fontFamily: 'Heebo_500Medium', fontSize: 14.5, color: C.text },
     rowTxtActive: { color: '#fff', fontFamily: 'Heebo_700Bold' },
     rowTxtDisabled: { color: C.muted },
+
+    confirmWrap: {
+      ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(10,10,20,0.45)',
+      alignItems: 'center', justifyContent: 'center', padding: 24,
+    },
+    confirmCard: {
+      alignSelf: 'stretch', backgroundColor: C.card, borderRadius: 20, padding: 20, gap: 10,
+      shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.2, shadowRadius: 20, elevation: 8,
+    },
+    confirmTxt: { fontFamily: 'Heebo_500Medium', fontSize: 14, color: C.text, lineHeight: 21 },
+    confirmBtns: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 6 },
+    confirmCancel: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12 },
+    confirmCancelTxt: { fontFamily: 'Heebo_600SemiBold', fontSize: 13.5, color: C.muted },
+    confirmLogout: { backgroundColor: '#ef4444', borderRadius: 12, paddingHorizontal: 22, paddingVertical: 10 },
+    confirmLogoutTxt: { fontFamily: 'Heebo_700Bold', fontSize: 13.5, color: '#fff' },
   });
 }

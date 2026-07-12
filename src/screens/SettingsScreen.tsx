@@ -5,7 +5,7 @@ import { Feather } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useLang } from '../context/LangContext';
-import { useSettings, AudioInputSource, NoteNamingStyle } from '../context/SettingsContext';
+import { useSettings, AudioInputSource, NoteNamingStyle, DisappearingTiming } from '../context/SettingsContext';
 import { PIANO_SOUND_THEMES } from '../constants/pianoSounds';
 import { useTheme, ThemeColors } from '../utils/theme';
 import AppHeader from '../components/AppHeader';
@@ -70,10 +70,6 @@ export default function SettingsScreen() {
             <Text style={s.sliderEdgeLabel}>{t.sensitivityHigh}</Text>
           </View>
 
-          <SettingRow icon="volume-2" label={t.audioFeedbackLabel} desc={t.audioFeedbackDesc} s={s} C={C}>
-            <Toggle value={settings.audioFeedback} onChange={v => updateSetting('audioFeedback', v)} C={C} s={s} />
-          </SettingRow>
-
           <SettingRow icon="music" label={t.pianoSoundLabel} s={s} C={C} last>
             <View />
           </SettingRow>
@@ -136,13 +132,75 @@ export default function SettingsScreen() {
             <Toggle value={settings.darkMode} onChange={v => updateSetting('darkMode', v)} C={C} s={s} />
           </SettingRow>
 
-          <SettingRow icon="clock" label={t.countInLabel} desc={t.countInDesc} s={s} C={C}>
-            <Toggle value={settings.countIn} onChange={v => updateSetting('countIn', v)} C={C} s={s} />
+          <SettingRow icon="clock" label={t.metronomeLabel} desc={t.metronomeDesc} s={s} C={C}>
+            <Toggle value={settings.metronomeEnabled} onChange={v => updateSetting('metronomeEnabled', v)} C={C} s={s} />
           </SettingRow>
+          {settings.metronomeEnabled && (
+            <>
+              <SettingRow icon="activity" label={t.metronomeBpmLabel} s={s} C={C} last>
+                <Text style={s.rowValue}>{settings.metronomeBpm} BPM</Text>
+              </SettingRow>
+              <View style={s.sliderRow}>
+                <Text style={s.sliderEdgeLabel}>40</Text>
+                <Slider
+                  style={s.slider}
+                  minimumValue={40}
+                  maximumValue={200}
+                  step={5}
+                  value={settings.metronomeBpm}
+                  onSlidingComplete={v => updateSetting('metronomeBpm', Math.round(v))}
+                  minimumTrackTintColor={C.primary}
+                  maximumTrackTintColor={C.border}
+                  thumbTintColor={C.primary}
+                />
+                <Text style={s.sliderEdgeLabel}>200</Text>
+              </View>
+              <SettingRow icon="volume-2" label={t.metronomeVolumeLabel} s={s} C={C} last>
+                <View />
+              </SettingRow>
+              <View style={s.sliderRow}>
+                <Text style={s.sliderEdgeLabel}>{t.sensitivityLow}</Text>
+                <Slider
+                  style={s.slider}
+                  minimumValue={0}
+                  maximumValue={1}
+                  value={settings.metronomeVolume}
+                  onSlidingComplete={v => updateSetting('metronomeVolume', v)}
+                  minimumTrackTintColor={C.primary}
+                  maximumTrackTintColor={C.border}
+                  thumbTintColor={C.primary}
+                />
+                <Text style={s.sliderEdgeLabel}>{t.sensitivityHigh}</Text>
+              </View>
+              <SettingRow icon="zap" label={t.metronomeAccentLabel} s={s} C={C}>
+                <Toggle value={settings.metronomeAccent} onChange={v => updateSetting('metronomeAccent', v)} C={C} s={s} />
+              </SettingRow>
+            </>
+          )}
 
-          <SettingRow icon="zap" label={t.liveErrorFeedbackLabel} desc={t.liveErrorFeedbackDesc} s={s} C={C}>
-            <Toggle value={settings.liveErrorFeedback} onChange={v => updateSetting('liveErrorFeedback', v)} C={C} s={s} />
+          <SettingRow icon="eye-off" label={t.disappearingMeasuresLabel} desc={t.disappearingMeasuresDesc} s={s} C={C} last={settings.disappearingMeasures}>
+            <Toggle value={settings.disappearingMeasures} onChange={v => updateSetting('disappearingMeasures', v)} C={C} s={s} />
           </SettingRow>
+          {settings.disappearingMeasures && (
+            <View style={[s.soundThemeRow, s.rowBorder]}>
+              {([
+                { value: 'delayed', label: t.dmTimingDelayed },
+                { value: 'onEntry', label: t.dmTimingOnEntry },
+                { value: 'afterEnd', label: t.dmTimingAfterEnd },
+              ] as { value: DisappearingTiming; label: string }[]).map(opt => (
+                <TouchableOpacity
+                  key={opt.value}
+                  style={[s.soundChip, settings.disappearingMeasuresTiming === opt.value && s.soundChipActive]}
+                  onPress={() => updateSetting('disappearingMeasuresTiming', opt.value)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[s.soundChipTxt, settings.disappearingMeasuresTiming === opt.value && s.soundChipTxtActive]}>
+                    {opt.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
 
           <SettingRow icon="bell" label={t.dailyReminderLabel} desc={t.dailyReminderDesc} s={s} C={C} last={!settings.dailyReminder}>
             <Toggle value={settings.dailyReminder} onChange={v => updateSetting('dailyReminder', v)} C={C} s={s} />
@@ -171,10 +229,8 @@ export default function SettingsScreen() {
             />
             <InputOption
               label={t.audioInputMidi}
-              badge={t.audioInputMidiSoon}
-              disabled
               selected={settings.audioInputSource === 'midi'}
-              onPress={() => {}}
+              onPress={() => { updateSetting('audioInputSource', 'midi' as AudioInputSource); setInputDropdownOpen(false); }}
               s={s} C={C}
             />
           </View>
@@ -308,6 +364,7 @@ function makeStyles(C: ThemeColors) {
     rowIconWrap: { width: 32, height: 32, borderRadius: 16, backgroundColor: C.primaryTint, alignItems: 'center', justifyContent: 'center' },
     rowLabel: { fontFamily: 'Heebo_600SemiBold', fontSize: 14, color: C.text },
     rowDesc: { fontFamily: 'Heebo_400Regular', fontSize: 11.5, color: C.muted, marginTop: 2 },
+    rowValue: { fontFamily: 'Heebo_700Bold', fontSize: 13, color: C.text },
 
     sliderRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: C.border, marginTop: -6 },
     lastSliderRow: { borderBottomWidth: 0 },

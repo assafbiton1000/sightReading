@@ -18,7 +18,7 @@ type Styles = ReturnType<typeof makeStyles>;
 export default function ResultScreen() {
   const route = useRoute<Route>();
   const navigation = useNavigation<Nav>();
-  const { correct, total, levelId, clef, noteCount, bothMode, prevStreak, prevAvgAccuracy } = route.params;
+  const { correct, total, levelId, clef, noteCount, bothMode, rhythmErrors, prevStreak, prevAvgAccuracy } = route.params;
   const level = LEVELS.find(l => l.id === levelId)!;
   const { t } = useLang();
   const { stats } = useHistory(); // already reflects this session — recordSession ran before we navigated here
@@ -73,6 +73,9 @@ export default function ResultScreen() {
           <IR s={s} label={t.notesLabel}   value={String(total)} />
           <IR s={s} label={t.correctLabel} value={String(correct)} />
           <IR s={s} label={t.wrongLabel}   value={String(total - correct)} />
+          {typeof rhythmErrors === 'number' && rhythmErrors > 0 && (
+            <IR s={s} label={t.rhythmErrorsLabel} value={String(rhythmErrors)} />
+          )}
         </View>
 
         <TouchableOpacity style={s.btn} onPress={() => navigation.navigate('Practice', { levelId, clef, noteCount, bothMode })}>

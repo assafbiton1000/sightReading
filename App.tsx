@@ -1,8 +1,8 @@
 import 'react-native-gesture-handler';
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, ActivityIndicator, Alert } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import {
@@ -23,9 +23,15 @@ import AudioTestScreen from './src/screens/AudioTestScreen';
 import LearningScreen from './src/screens/LearningScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import StatisticsScreen from './src/screens/StatisticsScreen';
+import HelpScreen from './src/screens/HelpScreen';
+import AboutScreen from './src/screens/AboutScreen';
+import ProfileScreen from './src/screens/ProfileScreen';
+import AuthScreen from './src/screens/AuthScreen';
+import ResetPasswordScreen from './src/screens/ResetPasswordScreen';
 import { LangProvider, useLang } from './src/context/LangContext';
 import { SettingsProvider, useSettings } from './src/context/SettingsContext';
 import { HistoryProvider } from './src/context/HistoryContext';
+import { ProfileProvider, useProfile } from './src/context/ProfileContext';
 import { LIGHT_THEME, DARK_THEME } from './src/utils/theme';
 import { syncDailyReminder } from './src/utils/dailyReminder';
 
@@ -36,6 +42,9 @@ const Stack = createStackNavigator<RootStackParamList>();
 function AppContent() {
   const { settings, loaded } = useSettings();
   const { t, lang } = useLang();
+  const { passwordRecovery } = useProfile();
+  const navigationRef = useNavigationContainerRef<RootStackParamList>();
+  const [navReady, setNavReady] = useState(false);
   const theme = settings.darkMode ? DARK_THEME : LIGHT_THEME;
   const navTheme = {
     dark: settings.darkMode,
@@ -62,8 +71,14 @@ function AppContent() {
       });
   }, [loaded, settings.dailyReminder, settings.dailyReminderTime, lang]);
 
+  // A reset-password email link signs the user in with a recovery session;
+  // take them straight to the choose-a-new-password screen.
+  useEffect(() => {
+    if (navReady && passwordRecovery) navigationRef.navigate('ResetPassword');
+  }, [navReady, passwordRecovery]);
+
   return (
-    <NavigationContainer theme={navTheme}>
+    <NavigationContainer ref={navigationRef} onReady={() => setNavReady(true)} theme={navTheme}>
       <StatusBar style={settings.darkMode ? 'light' : 'dark'} />
       <Stack.Navigator initialRouteName="Home" screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Home" component={HomeScreen} />
@@ -75,6 +90,11 @@ function AppContent() {
         <Stack.Screen name="Learning" component={LearningScreen} />
         <Stack.Screen name="Settings" component={SettingsScreen} />
         <Stack.Screen name="Statistics" component={StatisticsScreen} />
+        <Stack.Screen name="Help" component={HelpScreen} />
+        <Stack.Screen name="About" component={AboutScreen} />
+        <Stack.Screen name="Profile" component={ProfileScreen} />
+        <Stack.Screen name="Auth" component={AuthScreen} />
+        <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
@@ -101,9 +121,11 @@ export default function App() {
     <SafeAreaProvider>
     <SettingsProvider>
     <HistoryProvider>
+    <ProfileProvider>
     <LangProvider>
       <AppContent />
     </LangProvider>
+    </ProfileProvider>
     </HistoryProvider>
     </SettingsProvider>
     </SafeAreaProvider>

@@ -3,7 +3,11 @@ import { Platform } from 'react-native';
 
 const ANDROID_CHANNEL_ID = 'daily-reminder';
 
-Notifications.setNotificationHandler({
+// expo-notifications has no web implementation — every call throws on web,
+// so all exported functions below no-op there.
+const isWeb = Platform.OS === 'web';
+
+if (!isWeb) Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowBanner: true,
     shouldShowList: true,
@@ -13,6 +17,7 @@ Notifications.setNotificationHandler({
 });
 
 export async function requestNotificationPermission(): Promise<boolean> {
+  if (isWeb) return false;
   const current = await Notifications.getPermissionsAsync();
   if (current.granted) return true;
   const requested = await Notifications.requestPermissionsAsync();
@@ -31,10 +36,12 @@ async function ensureAndroidChannel() {
 // everything before rescheduling is simpler and just as correct as tracking
 // a notification id to cancel selectively.
 export async function cancelDailyReminder(): Promise<void> {
+  if (isWeb) return;
   await Notifications.cancelAllScheduledNotificationsAsync();
 }
 
 export async function scheduleDailyReminder(time: string, title: string, body: string): Promise<void> {
+  if (isWeb) return;
   const [hourStr, minuteStr] = time.split(':');
   const hour = parseInt(hourStr, 10);
   const minute = parseInt(minuteStr, 10);
@@ -63,7 +70,7 @@ export async function syncDailyReminder(
   title: string,
   body: string
 ): Promise<'scheduled' | 'cancelled' | 'permission-denied'> {
-  if (!enabled) {
+  if (!enabled || isWeb) {
     await cancelDailyReminder();
     return 'cancelled';
   }

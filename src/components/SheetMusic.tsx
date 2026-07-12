@@ -23,7 +23,11 @@ interface Props {
   notes: GeneratedNote[];
   /** Indices that should be highlighted blue (current note/s) */
   highlightedIndices: number[];
-  noteResults: ('correct' | 'wrong' | 'pending')[];
+  /** Indices rendered invisible (disappearing-measures mode). VexFlow still
+   * formats them, so the layout never shifts when notes vanish. */
+  hiddenIndices?: number[];
+  /** 'rhythm' = right pitch, wrong relative duration — shown orange after the exercise */
+  noteResults: ('correct' | 'wrong' | 'rhythm' | 'pending')[];
   keySignature: string;
   timeSignature: [number, number];
   /** Called once after VexFlow renders with the absolute x-position of each note */
@@ -39,7 +43,8 @@ interface Props {
 function buildHtml(
   notes: GeneratedNote[],
   highlightedIndices: number[],
-  noteResults: ('correct' | 'wrong' | 'pending')[],
+  hiddenIndices: number[],
+  noteResults: ('correct' | 'wrong' | 'rhythm' | 'pending')[],
   keySignature: string,
   timeSignature: [number, number],
   colorfulNotes: boolean,
@@ -49,6 +54,7 @@ function buildHtml(
   const notesJson = JSON.stringify(notes);
   const resultsJson = JSON.stringify(noteResults);
   const highlightJson = JSON.stringify(highlightedIndices);
+  const hiddenJson = JSON.stringify(hiddenIndices);
   const [beats, beatValue] = timeSignature;
   const bgColor = darkMode ? '#1A1C25' : '#fff';
   const staffColor = darkMode ? '#F1F2F6' : '#1a1d2e';
@@ -74,6 +80,7 @@ try{
   var notes=${notesJson};
   var results=${resultsJson};
   var highlighted=new Set(${highlightJson});
+  var hidden=new Set(${hiddenJson});
   var keySig="${keySignature}";
   var beats=${beats};
   var beatValue=${beatValue};
@@ -145,6 +152,7 @@ try{
     if(highlighted.has(i)) return "#1E90FF";
     if(results[i]==="correct") return "#22c55e";
     if(results[i]==="wrong") return "#ef4444";
+    if(results[i]==="rhythm") return "#f59e0b";
     if(COLORFUL){
       var letter=notes[i].keys[0].split("/")[0];
       return NOTE_COLORS[letter]||STAFF_COLOR;
@@ -154,8 +162,14 @@ try{
 
   function makeSN(item,clef){
     var sn=new VF.StaveNote({clef:clef,keys:item.note.keys,duration:item.note.duration});
-    var col=getColor(item.idx);
-    sn.setStyle({fillStyle:col,strokeStyle:col});
+    if(hidden.has(item.idx)){
+      var inv={fillStyle:"rgba(0,0,0,0)",strokeStyle:"rgba(0,0,0,0)"};
+      sn.setStyle(inv);
+      if(sn.setLedgerLineStyle)sn.setLedgerLineStyle(inv);
+    } else {
+      var col=getColor(item.idx);
+      sn.setStyle({fillStyle:col,strokeStyle:col});
+    }
     return sn;
   }
 
@@ -229,13 +243,15 @@ try{
 </html>`;
 }
 
+const NO_HIDDEN: number[] = []; // stable default — an inline [] would rebuild the html memo every render
+
 export default function SheetMusic({
-  notes, highlightedIndices, noteResults, keySignature, timeSignature, onNotePositions,
+  notes, highlightedIndices, hiddenIndices = NO_HIDDEN, noteResults, keySignature, timeSignature, onNotePositions,
   colorfulNotes = false, staffScale = 1, darkMode = false,
 }: Props) {
   const html = useMemo(
-    () => buildHtml(notes, highlightedIndices, noteResults, keySignature, timeSignature, colorfulNotes, staffScale, darkMode),
-    [notes, highlightedIndices, noteResults, keySignature, timeSignature, colorfulNotes, staffScale, darkMode]
+    () => buildHtml(notes, highlightedIndices, hiddenIndices, noteResults, keySignature, timeSignature, colorfulNotes, staffScale, darkMode),
+    [notes, highlightedIndices, hiddenIndices, noteResults, keySignature, timeSignature, colorfulNotes, staffScale, darkMode]
   );
 
   const isGrand = notes.some(n => n.clef === 'treble') && notes.some(n => n.clef === 'bass');

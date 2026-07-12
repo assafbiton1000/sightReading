@@ -13,6 +13,8 @@ export type RootStackParamList = {
   SongLibrary: undefined;
   Result: {
     correct: number; total: number; levelId: number; clef: Clef; noteCount: number; bothMode: BothMode;
+    /** Notes with the right pitch but a clearly wrong relative duration (free-tempo rhythm analysis). */
+    rhythmErrors?: number;
     /** Streak/accuracy as they stood right before this session — lets Result show what changed. */
     prevStreak: number; prevAvgAccuracy: number | null;
   };
@@ -20,4 +22,10 @@ export type RootStackParamList = {
   Learning: undefined;
   Settings: undefined;
   Statistics: undefined;
+  Help: undefined;
+  About: undefined;
+  Profile: undefined;
+  Auth: { mode?: 'signin' | 'signup' } | undefined;
+  /** Reached via the reset-password email deep link (App navigates here automatically). */
+  ResetPassword: undefined;
 };

@@ -18,7 +18,7 @@ type Styles = ReturnType<typeof makeStyles>;
 export default function ResultScreen() {
   const route = useRoute<Route>();
   const navigation = useNavigation<Nav>();
-  const { correct, total, levelId, clef, noteCount, bothMode, rhythmErrors, prevStreak, prevAvgAccuracy } = route.params;
+  const { correct, total, levelId, clef, noteCount, bothMode, rhythmErrors, skipped, prevStreak, prevAvgAccuracy } = route.params;
   const level = LEVELS.find(l => l.id === levelId)!;
   const { t } = useLang();
   const { stats } = useHistory(); // already reflects this session — recordSession ran before we navigated here
@@ -72,9 +72,12 @@ export default function ResultScreen() {
           <IR s={s} label={t.levelLabel}   value={`${levelId} — ${t.levelNames[level.id - 1]}`} />
           <IR s={s} label={t.notesLabel}   value={String(total)} />
           <IR s={s} label={t.correctLabel} value={String(correct)} />
-          <IR s={s} label={t.wrongLabel}   value={String(total - correct)} />
+          <IR s={s} label={t.wrongLabel}   value={String(total - correct - (skipped ?? 0))} />
           {typeof rhythmErrors === 'number' && rhythmErrors > 0 && (
             <IR s={s} label={t.rhythmErrorsLabel} value={String(rhythmErrors)} />
+          )}
+          {typeof skipped === 'number' && skipped > 0 && (
+            <IR s={s} label={t.skippedLabel} value={String(skipped)} />
           )}
         </View>
 

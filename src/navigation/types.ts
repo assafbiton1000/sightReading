@@ -9,12 +9,18 @@ export type RootStackParamList = {
      * bpm comes from the Song Library's own 1-5 difficulty scale, not `levelId`. */
     song?: { name: string; notes: GeneratedNote[]; bpm: number };
   };
-  Playback: { levelId: number; clef: Clef; noteCount: number; bothMode: BothMode };
+  Playback: {
+    levelId: number; clef: Clef; noteCount: number; bothMode: BothMode;
+    /** When set, Playback plays this fixed song instead of generating a random exercise. */
+    song?: { name: string; notes: GeneratedNote[]; bpm: number };
+  };
   SongLibrary: undefined;
   Result: {
     correct: number; total: number; levelId: number; clef: Clef; noteCount: number; bothMode: BothMode;
     /** Notes with the right pitch but a clearly wrong relative duration (free-tempo rhythm analysis). */
     rhythmErrors?: number;
+    /** Notes never reached because the player stopped the exercise early. */
+    skipped?: number;
     /** Streak/accuracy as they stood right before this session — lets Result show what changed. */
     prevStreak: number; prevAvgAccuracy: number | null;
   };

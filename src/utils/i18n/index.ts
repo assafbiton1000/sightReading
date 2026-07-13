@@ -15,7 +15,7 @@ export type { Lang, T } from './types';
 const translations: Record<Lang, T> = { he, en, es, fr, de, ru, ar, pt, it };
 
 // Module-level singleton — survives navigation, cleared on app restart
-let currentLang: Lang = 'he';
+let currentLang: Lang = 'en';
 
 export const langSettings = {
   get: (): Lang => currentLang,

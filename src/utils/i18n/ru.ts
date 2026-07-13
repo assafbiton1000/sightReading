@@ -40,6 +40,7 @@ export const ru: T = {
 
   correctLabel: 'Верно',
   wrongLabel: 'Неверно',
+  skippedLabel: 'Не сыграно',
   noteProgress: 'Нота {n} / {total}',
   tryAgain: 'Попробовать снова',
   newExercise: 'Новое упражнение',
@@ -62,6 +63,9 @@ export const ru: T = {
   showScoreBtn: 'Показать итоговый счёт',
   rhythmErrorsLabel: 'Ошибки ритма',
   showCorrectBtn: 'Послушать правильное исполнение',
+  showYourBtn: 'Послушать, как вы сыграли',
+  songChooseTitle: 'Как открыть эту песню?',
+  practiceModeBtn: 'Тренировка',
 
   learningTitle: 'Обучение',
   notesCount: 'Ноты',

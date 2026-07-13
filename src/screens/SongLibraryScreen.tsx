@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -28,15 +28,26 @@ export default function SongLibraryScreen() {
     );
   }, [query]);
 
+  // Tapping a song asks whether to just listen (Playback, moving cursor, no
+  // input) or practice it (Practice, mic/keyboard input + scoring).
   function openSong(song: (typeof SONGS)[number]) {
     const bpm = SONG_DIFFICULTIES.find(d => d.id === song.levelId)?.bpm ?? SONG_DIFFICULTIES[0].bpm;
-    navigation.navigate('Practice', {
-      levelId: 1, // placeholder — the song's own bpm below drives tempo, not the main level system
-      clef: 'treble',
-      noteCount: song.notes.length,
-      bothMode: 'sequential',
-      song: { name: song.name, notes: song.notes, bpm },
-    });
+    const songParam = { name: song.name, notes: song.notes, bpm };
+    Alert.alert(song.name, t.songChooseTitle, [
+      { text: t.cancelBtn, style: 'cancel' },
+      {
+        text: t.practiceModeBtn,
+        onPress: () => navigation.navigate('Practice', {
+          levelId: 1, clef: 'treble', noteCount: song.notes.length, bothMode: 'sequential', song: songParam,
+        }),
+      },
+      {
+        text: t.listenLabel,
+        onPress: () => navigation.navigate('Playback', {
+          levelId: 1, clef: 'treble', noteCount: song.notes.length, bothMode: 'sequential', song: songParam,
+        }),
+      },
+    ]);
   }
 
   return (

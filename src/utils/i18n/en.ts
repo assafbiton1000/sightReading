@@ -40,6 +40,7 @@ export const en: T = {
 
   correctLabel: 'Correct',
   wrongLabel: 'Wrong',
+  skippedLabel: 'Not played',
   noteProgress: 'Note {n} / {total}',
   tryAgain: 'Try again',
   newExercise: 'New exercise',
@@ -62,6 +63,9 @@ export const en: T = {
   showScoreBtn: 'Show Final Score',
   rhythmErrorsLabel: 'Rhythm errors',
   showCorrectBtn: 'Hear the Correct Performance',
+  showYourBtn: 'Hear How You Played',
+  songChooseTitle: 'How would you like to open this song?',
+  practiceModeBtn: 'Practice',
 
   learningTitle: 'Learning',
   notesCount: 'Notes',

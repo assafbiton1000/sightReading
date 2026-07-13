@@ -40,6 +40,7 @@ export const he: T = {
 
   correctLabel: 'נכון',
   wrongLabel: 'שגוי',
+  skippedLabel: 'לא עשה',
   noteProgress: 'תו {n} / {total}',
   tryAgain: 'נסה שוב',
   newExercise: 'תרגיל חדש',
@@ -62,6 +63,9 @@ export const he: T = {
   showScoreBtn: 'הצגת הציון הסופי',
   rhythmErrorsLabel: 'טעויות קצב',
   showCorrectBtn: 'האזנה לביצוע הנכון',
+  showYourBtn: 'שמע איך ניגנת',
+  songChooseTitle: 'איך תרצה לפתוח את השיר?',
+  practiceModeBtn: 'אימון',
 
   learningTitle: 'למידה',
   notesCount: 'תווים',

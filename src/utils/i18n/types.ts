@@ -58,6 +58,7 @@ export interface T {
   // practice
   correctLabel: string;
   wrongLabel: string;
+  skippedLabel: string;
   noteProgress: string; // use {n} and {total} placeholders
   tryAgain: string;
   newExercise: string;
@@ -82,6 +83,9 @@ export interface T {
   showScoreBtn: string;
   rhythmErrorsLabel: string;
   showCorrectBtn: string;
+  showYourBtn: string;
+  songChooseTitle: string;
+  practiceModeBtn: string;
 
   // learning
   learningTitle: string;

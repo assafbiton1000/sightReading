@@ -10,7 +10,7 @@ import { generateExercise, getRandomKeySignature, GeneratedNote } from '../utils
 import { noteToFreq } from '../utils/musicTheory';
 import { DURATION_BEATS } from '../constants/notes';
 import SheetMusic from '../components/SheetMusic';
-import PlaybackCursor, { usePlaybackCursor } from '../components/PlaybackCursor';
+import PlaybackCursor, { usePlaybackCursor, getCursorMetrics } from '../components/PlaybackCursor';
 import { timbreSettings } from '../utils/timbreSettings';
 import { buildSynthHtml } from '../utils/pianoSynthHtml';
 import { useLang } from '../context/LangContext';
@@ -25,8 +25,9 @@ type Nav = StackNavigationProp<RootStackParamList, 'Playback'>;
 export default function PlaybackScreen() {
   const route = useRoute<Route>();
   const navigation = useNavigation<Nav>();
-  const { levelId, clef, noteCount, bothMode } = route.params;
+  const { levelId, clef, noteCount, bothMode, song } = route.params;
   const level = LEVELS.find(l => l.id === levelId)!;
+  const bpm = song?.bpm ?? level.bpm;
   const isSimultaneous = clef === 'both' && bothMode === 'simultaneous';
   const { t } = useLang();
   const { settings } = useSettings();
@@ -37,12 +38,17 @@ export default function PlaybackScreen() {
   const styles = makeStyles(C);
 
   const [notes, setNotes] = useState<GeneratedNote[]>([]);
+  const isGrand = notes.some(n => n.clef === 'treble') && notes.some(n => n.clef === 'bass');
   const [keySignature, setKeySignature] = useState('C');
   const [highlightedIndices, setHighlightedIndices] = useState<number[]>([]);
   const [isPlaying, setIsPlaying] = useState(false);
   const synthRef = useRef<WebView>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  // Auto-follow scrolling: the sheet's own y-offset inside the ScrollView (measured
+  // once on layout) plus the cursor's current line tells us where to scroll to.
+  const scrollRef = useRef<ScrollView>(null);
+  const sheetYRef = useRef(0);
 
   const synthHtml = useRef((() => { const t = timbreSettings.get(); return buildSynthHtml(t.brightness, t.sustain); })()).current;
 
@@ -50,8 +56,8 @@ export default function PlaybackScreen() {
   const [cursor, cursorXAnim, cursorLineIdx] = usePlaybackCursor();
 
   function generate() {
-    const generated = generateExercise(level, clef, noteCount, bothMode);
-    const keySig = getRandomKeySignature(level.maxSharpsFlats);
+    const generated = song ? song.notes : generateExercise(level, clef, noteCount, bothMode);
+    const keySig = song ? 'C' : getRandomKeySignature(level.maxSharpsFlats);
     setNotes(generated);
     setKeySignature(keySig);
     setHighlightedIndices([]);
@@ -63,6 +69,15 @@ export default function PlaybackScreen() {
 
   useEffect(() => { generate(); }, []);
   useEffect(() => () => { if (timeoutRef.current) clearTimeout(timeoutRef.current); }, []);
+
+  // Follow the cursor down the page as it moves to a new staff line — slow,
+  // smooth scroll so the moving line never runs off the bottom of the screen.
+  useEffect(() => {
+    if (!isPlaying) return;
+    const { systemH } = getCursorMetrics(isGrand, settings.staffSize);
+    const y = Math.max(0, sheetYRef.current + cursorLineIdx * systemH - 60);
+    scrollRef.current?.scrollTo({ y, animated: true });
+  }, [cursorLineIdx, isPlaying, isGrand, settings.staffSize]);
 
   function sendNote(freq: number, dur: number) {
     // Read live (not the snapshot the WebView HTML was built with) so a Settings
@@ -88,14 +103,15 @@ export default function PlaybackScreen() {
       setIsPlaying(false);
       setHighlightedIndices([]);
       cursor.reset();
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
       if (noteList.length > 0) {
         const totalBeats = noteList.reduce((sum, n) => sum + (DURATION_BEATS[n.duration] ?? 1), 0);
-        recordSession({ mode: 'playback', minutes: totalBeats / level.bpm });
+        recordSession({ mode: 'playback', minutes: totalBeats / bpm });
       }
       return;
     }
 
-    const secPerBeat = 60 / level.bpm;
+    const secPerBeat = 60 / bpm;
 
     if (isSimultaneous) {
       const highlighted = [idx, idx + 1].filter(i => i < noteList.length);
@@ -130,6 +146,7 @@ export default function PlaybackScreen() {
       setIsPlaying(false);
       setHighlightedIndices([]);
       cursor.reset();
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
       return;
     }
     setIsPlaying(true);
@@ -137,7 +154,6 @@ export default function PlaybackScreen() {
   }
 
   const pending: ('correct' | 'wrong' | 'pending')[] = notes.map(() => 'pending');
-  const isGrand = notes.some(n => n.clef === 'treble') && notes.some(n => n.clef === 'bass');
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -147,12 +163,12 @@ export default function PlaybackScreen() {
           mediaPlaybackRequiresUserAction={false} allowsInlineMediaPlayback />
       </View>
 
-      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => { if (timeoutRef.current) clearTimeout(timeoutRef.current); navigation.goBack(); }}>
             <Text style={styles.back}>{t.back}</Text>
           </TouchableOpacity>
-          <Text style={styles.levelLabel}>{t.listenLabel} · {t.levelLabel} {levelId}</Text>
+          <Text style={styles.levelLabel}>{song ? song.name : `${t.listenLabel} · ${t.levelLabel} ${levelId}`}</Text>
         </View>
 
         {/* Play button ABOVE the sheet music so it's always visible */}
@@ -162,11 +178,11 @@ export default function PlaybackScreen() {
               <Text style={styles.playBtnTxt}>{isPlaying ? t.stopBtn : t.playBtn}</Text>
             </TouchableOpacity>
           </Animated.View>
-          <Text style={styles.bpm}>{level.bpm} BPM · {keySignature} · {t.tempo}</Text>
+          <Text style={styles.bpm}>{bpm} BPM · {keySignature} · {t.tempo}</Text>
         </View>
 
         {notes.length > 0 && (
-          <View style={{ position: 'relative' }}>
+          <View style={{ position: 'relative' }} onLayout={e => { sheetYRef.current = e.nativeEvent.layout.y; }}>
             <SheetMusic
               notes={notes}
               highlightedIndices={highlightedIndices}
@@ -189,9 +205,11 @@ export default function PlaybackScreen() {
           </View>
         )}
 
-        <TouchableOpacity style={styles.newBtn} onPress={generate}>
-          <Text style={styles.newBtnTxt}>{t.newNotes}</Text>
-        </TouchableOpacity>
+        {!song && (
+          <TouchableOpacity style={styles.newBtn} onPress={generate}>
+            <Text style={styles.newBtnTxt}>{t.newNotes}</Text>
+          </TouchableOpacity>
+        )}
       </ScrollView>
     </SafeAreaView>
   );

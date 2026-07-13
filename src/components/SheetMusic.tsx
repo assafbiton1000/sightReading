@@ -27,7 +27,7 @@ interface Props {
    * formats them, so the layout never shifts when notes vanish. */
   hiddenIndices?: number[];
   /** 'rhythm' = right pitch, wrong relative duration — shown orange after the exercise */
-  noteResults: ('correct' | 'wrong' | 'rhythm' | 'pending')[];
+  noteResults: ('correct' | 'wrong' | 'rhythm' | 'skipped' | 'pending')[];
   keySignature: string;
   timeSignature: [number, number];
   /** Called once after VexFlow renders with the absolute x-position of each note */
@@ -153,6 +153,7 @@ try{
     if(results[i]==="correct") return "#22c55e";
     if(results[i]==="wrong") return "#ef4444";
     if(results[i]==="rhythm") return "#f59e0b";
+    if(results[i]==="skipped") return "#a855f7";
     if(COLORFUL){
       var letter=notes[i].keys[0].split("/")[0];
       return NOTE_COLORS[letter]||STAFF_COLOR;

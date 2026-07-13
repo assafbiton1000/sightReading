@@ -15,7 +15,8 @@ import { DURATION_BEATS, NOTE_FREQUENCIES } from '../constants/notes';
 import { useMetronome } from '../utils/useMetronome';
 import { timbreSettings } from '../utils/timbreSettings';
 import { buildSynthHtml } from '../utils/pianoSynthHtml';
-import SheetMusic from '../components/SheetMusic';
+import SheetMusic, { NotePosition } from '../components/SheetMusic';
+import { getCursorMetrics } from '../components/PlaybackCursor';
 import PianoKeyboard from '../components/PianoKeyboard';
 import PitchDetectorView, { PitchDetectorHandle } from '../components/PitchDetectorView';
 import { useLang } from '../context/LangContext';
@@ -34,7 +35,7 @@ import AppHeader from '../components/AppHeader';
 
 type Route = RouteProp<RootStackParamList, 'Practice'>;
 type Nav = StackNavigationProp<RootStackParamList, 'Practice'>;
-type NoteResult = 'correct' | 'wrong' | 'rhythm' | 'pending';
+type NoteResult = 'correct' | 'wrong' | 'rhythm' | 'skipped' | 'pending';
 // 'demo' = the optional post-exercise replay of the CORRECT performance.
 type Phase = 'idle' | 'playing' | 'done' | 'demo';
 type Styles = ReturnType<typeof makeStyles>;
@@ -62,7 +63,7 @@ const MAX_WRONG_ATTEMPTS = 3;
 // beats, the median of those ratios is the player's own implied tempo, and a
 // note is flagged only when it deviates wildly from the player's own pace.
 const RHYTHM_MIN_INTERVALS = 3;
-const RHYTHM_SLOW_RATIO = 1.75;
+const RHYTHM_SLOW_RATIO = 1.4;
 const RHYTHM_FAST_RATIO = 0.55;
 
 // ── Live timing feedback ──
@@ -179,7 +180,34 @@ export default function PracticeScreen() {
   const lastEventAtRef = useRef(0);
   const lastSeenAtRef = useRef(0);
   // Final numbers, held for the "show score" button after the exercise ends.
-  const finishedRef = useRef<{ correct: number; total: number; rhythmErrors: number; prevStreak: number; prevAvgAccuracy: number | null } | null>(null);
+  const finishedRef = useRef<{ correct: number; total: number; rhythmErrors: number; skipped: number; prevStreak: number; prevAvgAccuracy: number | null } | null>(null);
+  // Every strike the player actually made this run (right or wrong pitch, real
+  // timestamp) — replayed verbatim by the "hear how you played" button.
+  const playedEventsRef = useRef<{ freq: number; at: number; idx: number }[]>([]);
+
+  // ── Auto-follow scrolling — with the on-screen keyboard fixed at the bottom
+  // of the screen (outside the ScrollView, so drags over it never mis-fire a
+  // key), the sheet still needs to scroll itself so the line the player has
+  // reached stays visible above the keyboard, same idea as Playback's cursor-follow. ──
+  const scrollRef = useRef<ScrollView>(null);
+  const sheetYRef = useRef(0);
+  const notePositionsRef = useRef<NotePosition[]>([]);
+  const lastAutoScrollLineRef = useRef(-1);
+  const handleNotePositions = useCallback((positions: NotePosition[]) => {
+    notePositionsRef.current = positions;
+  }, []);
+
+  // ── Floating arrow above the staff, pointing down at the current note —
+  // playing only, so it never distracts during idle/review/demo. ──
+  const [arrowX, setArrowX] = useState(0);
+  const [arrowLineIdx, setArrowLineIdx] = useState(0);
+  useEffect(() => {
+    if (phase !== 'playing' || currentNoteIdx < 0) return;
+    const pos = notePositionsRef.current.find(p => p.idx === currentNoteIdx);
+    if (!pos) return;
+    setArrowX(pos.x);
+    setArrowLineIdx(pos.lineIdx);
+  }, [currentNoteIdx, phase]);
 
   // ── Disappearing measures ─────────────────────────────────────────
   const [hiddenIndices, setHiddenIndices] = useState<number[]>(NO_INDICES);
@@ -217,6 +245,26 @@ export default function PracticeScreen() {
   useEffect(() => { currentIdxRef.current = currentNoteIdx; }, [currentNoteIdx]);
   useEffect(() => { notesRef.current = notes; }, [notes]);
   useEffect(() => { phaseRef.current = phase; }, [phase]);
+
+  // While playing with the on-screen keyboard, scroll the sheet to keep the
+  // current note's staff line visible above the fixed keyboard footer — the
+  // keyboard itself never moves, only the sheet scrolls to follow along.
+  useEffect(() => {
+    if (phase !== 'playing' || !useOnScreenKeyboard || currentNoteIdx < 0) return;
+    const pos = notePositionsRef.current.find(p => p.idx === currentNoteIdx);
+    if (!pos || pos.lineIdx === lastAutoScrollLineRef.current) return;
+    // Line 0 is already at the top — handleStart just did an explicit scrollTo(0).
+    // Computing its y from sheetYRef here would race the layout shrink that
+    // happens the instant 'playing' hides the controls/score row above the
+    // sheet: this effect can run with the stale (taller) offset and overshoot
+    // past the first line before onLayout catches up.
+    if (pos.lineIdx === 0) { lastAutoScrollLineRef.current = 0; return; }
+    lastAutoScrollLineRef.current = pos.lineIdx;
+    const isGrand = notes.some(n => n.clef === 'treble') && notes.some(n => n.clef === 'bass');
+    const { systemH } = getCursorMetrics(isGrand, settings.staffSize);
+    const y = Math.max(0, sheetYRef.current + pos.lineIdx * systemH - 20);
+    scrollRef.current?.scrollTo({ y, animated: true });
+  }, [currentNoteIdx, phase, useOnScreenKeyboard, notes, settings.staffSize]);
 
   // ── Request microphone permission on mount (mic input only) ────────
   useEffect(() => {
@@ -309,11 +357,12 @@ export default function PracticeScreen() {
 
     // A rhythm-flagged note was still the right pitch — it counts for the score.
     const correct = results.filter(r => r === 'correct' || r === 'rhythm').length;
+    const skipped = results.filter(r => r === 'skipped').length;
     const minutes = sessionStartRef.current > 0 ? (Date.now() - sessionStartRef.current) / 60000 : 0;
     // Read the pre-session snapshot before recordSession updates it.
     const { streak: prevStreak, avgAccuracy: prevAvgAccuracy } = statsRef.current;
     recordSession({ mode: 'practice', minutes, correct, total: ns.length });
-    finishedRef.current = { correct, total: ns.length, rhythmErrors, prevStreak, prevAvgAccuracy };
+    finishedRef.current = { correct, total: ns.length, rhythmErrors, skipped, prevStreak, prevAvgAccuracy };
 
     stopMetronome();
     setPhase('done');
@@ -325,28 +374,14 @@ export default function PracticeScreen() {
     const ns = notesRef.current;
     const idx = currentIdxRef.current;
     const members = slotMembers(idx);
-    const pitchClean = slotAttemptsRef.current === 0 && members.every(i => slotMatchedRef.current.has(i));
     const results = [...resultsRef.current];
     members.forEach(i => {
-      // First-try scoring: a note you fumbled before finding is still an error.
       results[i] = slotMatchedRef.current.has(i) && slotAttemptsRef.current === 0 ? 'correct' : 'wrong';
     });
 
-    // Live rhythm verdict: right pitch, but struck far off the player's own
-    // established pace (too late or too early) → orange immediately.
-    if (pitchClean && lastOnsetAtRef.current > 0 && lastSlotBeatsRef.current > 0) {
-      const ratio = (now - lastOnsetAtRef.current) / lastSlotBeatsRef.current;
-      if (liveRatiosRef.current.length >= LIVE_MIN_INTERVALS) {
-        const dev = ratio / median(liveRatiosRef.current);
-        if (dev > RHYTHM_SLOW_RATIO || dev < RHYTHM_FAST_RATIO) {
-          members.forEach(i => { results[i] = 'rhythm'; });
-        }
-      }
-      liveRatiosRef.current.push(ratio);
-    }
-
+    // Record onset for the post-exercise rhythm analysis (finishExercise reads onsetsRef).
     resultsRef.current = results;
-    setNoteResults([...results]);
+    // No setNoteResults here — colors are shown only at finishExercise.
     onsetsRef.current.push(now);
     lastOnsetAtRef.current = now;
     lastSlotBeatsRef.current = DURATION_BEATS[ns[idx]?.duration] ?? 1;
@@ -368,6 +403,8 @@ export default function PracticeScreen() {
     const idx = currentIdxRef.current;
     if (idx < 0 || idx >= ns.length) return;
 
+    playedEventsRef.current.push({ freq: noteToFreq(note), at: now, idx });
+
     const pending = slotMembers(idx).filter(i => !slotMatchedRef.current.has(i));
     const hit = pending.find(i => ns[i].keys.includes(note));
     if (hit !== undefined) {
@@ -376,20 +413,7 @@ export default function PracticeScreen() {
       if (allMatched) consumeSlot(now);
     } else {
       slotAttemptsRef.current += 1;
-      // Immediate feedback: the very first wrong strike paints the current slot
-      // red right away — no waiting for recovery or a skip. This is an early
-      // display of the verdict consumeSlot will reach anyway (fumbled = wrong,
-      // first-try scoring), so the color never flips back.
-      const results = [...resultsRef.current];
-      let changed = false;
-      slotMembers(idx).forEach(i => {
-        if (results[i] !== 'wrong') { results[i] = 'wrong'; changed = true; }
-      });
-      if (changed) {
-        resultsRef.current = results;
-        setNoteResults([...results]);
-      }
-      if (slotAttemptsRef.current >= MAX_WRONG_ATTEMPTS) consumeSlot(now);
+      consumeSlot(now); // wrong note → skip immediately, record as wrong
     }
   }, [slotMembers, consumeSlot]);
 
@@ -435,28 +459,6 @@ export default function PracticeScreen() {
     handleNoteEvent(note, Date.now());
   }, [playSound, handleNoteEvent]);
 
-  // ── Hesitation watchdog: paints the awaited note orange in real time when the
-  // player takes far longer than their own established pace. ──────────
-  function startWatchdog() {
-    if (watchdogRef.current) clearInterval(watchdogRef.current);
-    watchdogRef.current = setInterval(() => {
-      if (phaseRef.current !== 'playing') return;
-      if (liveRatiosRef.current.length < LIVE_MIN_INTERVALS) return;
-      if (lastOnsetAtRef.current <= 0 || lastSlotBeatsRef.current <= 0) return;
-      const expected = lastSlotBeatsRef.current * median(liveRatiosRef.current);
-      if (Date.now() - lastOnsetAtRef.current <= RHYTHM_SLOW_RATIO * expected) return;
-      const ns = notesRef.current;
-      const idx = currentIdxRef.current;
-      if (idx < 0 || idx >= ns.length) return;
-      const results = [...resultsRef.current];
-      let changed = false;
-      slotMembers(idx).forEach(i => {
-        // Only pending turns orange — a red from a wrong strike always wins.
-        if (results[i] === 'pending') { results[i] = 'rhythm'; changed = true; }
-      });
-      if (changed) { resultsRef.current = results; setNoteResults([...results]); }
-    }, WATCHDOG_MS);
-  }
 
   // ── Start: resets results but KEEPS same notes. No count-in — the app starts
   // listening immediately and the player sets the pace. ─
@@ -470,6 +472,7 @@ export default function PracticeScreen() {
     slotMatchedRef.current = new Set();
     slotAttemptsRef.current = 0;
     onsetsRef.current = [];
+    playedEventsRef.current = [];
     lastEventNoteRef.current = null;
     lastEventAtRef.current = 0;
     lastSeenAtRef.current = 0;
@@ -478,13 +481,14 @@ export default function PracticeScreen() {
     lastOnsetAtRef.current = 0;
     lastSlotBeatsRef.current = 0;
     finishedRef.current = null;
+    lastAutoScrollLineRef.current = -1;
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
     resetHidden();
     setPhase('playing');
     phaseRef.current = 'playing';
     updateHiddenMeasures(0);
     if (!useOnScreenKeyboard) pitchRef.current?.start();
     if (settings.metronomeEnabled) startMetronome();
-    startWatchdog();
   }
 
   function handleStop() {
@@ -497,6 +501,23 @@ export default function PracticeScreen() {
     setCurrentNoteIdx(-1);
     currentIdxRef.current = -1;
     resetHidden();
+  }
+
+  // ── Stop button while playing: whatever wasn't reached yet counts as wrong,
+  // then the exercise ends exactly like a normal finish (rhythm analysis on
+  // what WAS played, history save, score screen). ─
+  function handleStopExercise() {
+    if (phaseRef.current !== 'playing') return;
+    const ns = notesRef.current;
+    const idx = currentIdxRef.current;
+    if (idx >= 0) {
+      const results = [...resultsRef.current];
+      for (let i = idx; i < ns.length; i++) {
+        if (results[i] === 'pending') results[i] = 'skipped';
+      }
+      resultsRef.current = results;
+    }
+    finishExercise();
   }
 
   // ── Correct-performance replay (opt-in, after an imperfect exercise) ─
@@ -532,6 +553,31 @@ export default function PracticeScreen() {
     playNext();
   }
 
+  // ── Own-performance replay (opt-in) ──
+  // Plays back exactly what the player struck — right or wrong pitches, at the
+  // real gaps between strikes (hesitations and rushes included) — so they can
+  // hear their own timing instead of just seeing it in the score.
+  function startYourPerformance() {
+    if (phase !== 'done') return;
+    const events = playedEventsRef.current;
+    if (events.length === 0) return;
+    setPhase('demo');
+    phaseRef.current = 'demo';
+    let i = 0;
+    const playNext = () => {
+      if (phaseRef.current !== 'demo') return;
+      if (i >= events.length) { stopDemo(); return; }
+      const ev = events[i];
+      playSound(ev.freq);
+      setCurrentNoteIdx(ev.idx);
+      currentIdxRef.current = ev.idx;
+      const next = events[i + 1];
+      i += 1;
+      demoTimerRef.current = setTimeout(playNext, next ? next.at - ev.at : 400);
+    };
+    playNext();
+  }
+
   useEffect(() => () => {
     if (demoTimerRef.current) clearTimeout(demoTimerRef.current);
     if (watchdogRef.current) clearInterval(watchdogRef.current);
@@ -541,7 +587,7 @@ export default function PracticeScreen() {
     const f = finishedRef.current;
     if (!f) return;
     navigation.navigate('Result', {
-      correct: f.correct, total: f.total, rhythmErrors: f.rhythmErrors,
+      correct: f.correct, total: f.total, rhythmErrors: f.rhythmErrors, skipped: f.skipped,
       levelId, clef, noteCount, bothMode,
       prevStreak: f.prevStreak, prevAvgAccuracy: f.prevAvgAccuracy,
     });
@@ -550,6 +596,12 @@ export default function PracticeScreen() {
   const correctCount = noteResults.filter(r => r === 'correct' || r === 'rhythm').length;
   const wrongCount = noteResults.filter(r => r === 'wrong').length;
   const rhythmCount = noteResults.filter(r => r === 'rhythm').length;
+  const skippedCount = noteResults.filter(r => r === 'skipped').length;
+
+  // During playing all notes stay pending — no colors until finishExercise.
+  const displayNoteResults: NoteResult[] = phase === 'playing'
+    ? notes.map(() => 'pending')
+    : noteResults;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -565,7 +617,7 @@ export default function PracticeScreen() {
           mediaPlaybackRequiresUserAction={false} allowsInlineMediaPlayback />
       </View>
 
-      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+      <ScrollView ref={scrollRef} style={styles.scroll} contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => { handleStop(); navigation.goBack(); }}>
@@ -576,30 +628,66 @@ export default function PracticeScreen() {
           </Text>
         </View>
 
-        {/* Score row */}
-        <View style={styles.scoreRow}>
-          <ScoreChip label={t.correctLabel} count={correctCount} color="#22c55e" styles={styles} />
-          {phase === 'done' && rhythmCount > 0 && (
-            <ScoreChip label={t.rhythmErrorsLabel} count={rhythmCount} color="#f59e0b" styles={styles} />
-          )}
-          <ScoreChip label={t.wrongLabel} count={wrongCount} color="#ef4444" styles={styles} />
-        </View>
+        {/* Start — above the sheet music, same placement as Playback's Play
+            button. Once playing starts, Stop moves to a fixed footer (below)
+            so it stays in view the whole time, however far the sheet scrolls. */}
+        {phase === 'idle' && (
+          <View style={styles.controls}>
+            <TouchableOpacity style={styles.startBtn} onPress={handleStart}>
+              <Text style={styles.startBtnTxt}>{t.startBtn}</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Score row — visible only after the exercise, not during playing */}
+        {phase !== 'playing' && (
+          <View style={styles.scoreRow}>
+            <ScoreChip label={t.correctLabel} count={correctCount} color="#22c55e" styles={styles} />
+            {phase === 'done' && rhythmCount > 0 && (
+              <ScoreChip label={t.rhythmErrorsLabel} count={rhythmCount} color="#f59e0b" styles={styles} />
+            )}
+            <ScoreChip label={t.wrongLabel} count={wrongCount} color="#ef4444" styles={styles} />
+            {phase === 'done' && skippedCount > 0 && (
+              <ScoreChip label={t.skippedLabel} count={skippedCount} color="#a855f7" styles={styles} />
+            )}
+          </View>
+        )}
 
         {/* Sheet music — deliberately no cursor or current-note highlight while
             PRACTICING (unguided, free tempo). The blue highlight appears only
-            during the correct-performance replay, where guidance is the point. */}
+            during the correct-performance replay, where guidance is the point.
+            The floating arrow (playing only) just orients the player to where
+            they are, without dictating timing. */}
         {notes.length > 0 && (
-          <SheetMusic
-            notes={notes}
-            highlightedIndices={phase === 'demo' && currentNoteIdx >= 0 ? slotMembers(currentNoteIdx) : NO_INDICES}
-            hiddenIndices={hiddenIndices}
-            noteResults={noteResults}
-            keySignature={keySignature}
-            timeSignature={[4, 4]}
-            colorfulNotes={settings.colorfulNotes}
-            staffScale={settings.staffSize}
-            darkMode={isDark}
-          />
+          <View onLayout={e => { sheetYRef.current = e.nativeEvent.layout.y; }}>
+            <SheetMusic
+              notes={notes}
+              highlightedIndices={phase === 'demo' && currentNoteIdx >= 0 ? slotMembers(currentNoteIdx) : NO_INDICES}
+              hiddenIndices={hiddenIndices}
+              noteResults={displayNoteResults}
+              keySignature={keySignature}
+              timeSignature={[4, 4]}
+              onNotePositions={handleNotePositions}
+              colorfulNotes={settings.colorfulNotes}
+              staffScale={settings.staffSize}
+              darkMode={isDark}
+            />
+            {phase === 'playing' && (() => {
+              const isGrand = notes.some(n => n.clef === 'treble') && notes.some(n => n.clef === 'bass');
+              const { systemH, topOffset } = getCursorMetrics(isGrand, settings.staffSize);
+              return (
+                <Text
+                  pointerEvents="none"
+                  style={[
+                    styles.noteArrow,
+                    { top: arrowLineIdx * systemH + topOffset - 26, transform: [{ translateX: arrowX }] },
+                  ]}
+                >
+                  ▼
+                </Text>
+              );
+            })()}
+          </View>
         )}
 
         {/* Progress + listening hint */}
@@ -610,14 +698,6 @@ export default function PracticeScreen() {
             </Text>
             {!useOnScreenKeyboard && <Text style={styles.listening}>{t.listeningLabel}</Text>}
           </>
-        )}
-
-        {/* On-screen keyboard — always shown in keyboard mode; taps only count
-            toward the exercise while playing, but sound at any time */}
-        {useOnScreenKeyboard && (
-          <View style={styles.keyboardWrap}>
-            <PianoKeyboard onKeyPress={handleKeyPress} />
-          </View>
         )}
 
         {/* Buttons */}
@@ -632,21 +712,21 @@ export default function PracticeScreen() {
                   <Text style={styles.newBtnTxt}>▶ {t.showCorrectBtn}</Text>
                 </TouchableOpacity>
               )}
+              {playedEventsRef.current.length > 0 && (
+                <TouchableOpacity style={styles.newBtn} onPress={startYourPerformance}>
+                  <Text style={styles.newBtnTxt}>▶ {t.showYourBtn}</Text>
+                </TouchableOpacity>
+              )}
             </>
+          )}
+          {phase === 'done' && (
+            <TouchableOpacity style={styles.startBtn} onPress={handleStart}>
+              <Text style={styles.startBtnTxt}>{t.tryAgain}</Text>
+            </TouchableOpacity>
           )}
           {(phase === 'idle' || phase === 'done') && (
-            <>
-              <TouchableOpacity style={phase === 'done' ? styles.newBtn : styles.startBtn} onPress={handleStart}>
-                <Text style={phase === 'done' ? styles.newBtnTxt : styles.startBtnTxt}>{phase === 'done' ? t.tryAgain : t.startBtn}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.newBtn} onPress={generateNewExercise}>
-                <Text style={styles.newBtnTxt}>{t.newExercise}</Text>
-              </TouchableOpacity>
-            </>
-          )}
-          {phase === 'playing' && (
-            <TouchableOpacity style={styles.stopBtn} onPress={handleStop}>
-              <Text style={styles.startBtnTxt}>{t.stop}</Text>
+            <TouchableOpacity style={styles.newBtn} onPress={generateNewExercise}>
+              <Text style={styles.newBtnTxt}>{t.newExercise}</Text>
             </TouchableOpacity>
           )}
           {phase === 'demo' && (
@@ -658,6 +738,26 @@ export default function PracticeScreen() {
 
         <Text style={styles.keyLabel}>{keySignature}</Text>
       </ScrollView>
+
+      {/* Fixed footer — outside the ScrollView so dragging the sheet to scroll
+          can never land on a key and fire a false note, and the keyboard stays
+          visible without having to scroll down to it. */}
+      {useOnScreenKeyboard && (
+        <View style={styles.keyboardFooter}>
+          <PianoKeyboard onKeyPress={handleKeyPress} />
+        </View>
+      )}
+
+      {/* Fixed Stop footer — outside the ScrollView so it stays in view no
+          matter how far the sheet has scrolled. Sits above the on-screen
+          keyboard when both are present. */}
+      {phase === 'playing' && (
+        <View style={styles.stopFooter}>
+          <TouchableOpacity style={styles.stopBtn} onPress={handleStopExercise}>
+            <Text style={styles.startBtnTxt}>{t.stop}</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -675,17 +775,21 @@ function makeStyles(C: ThemeColors) {
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: C.bg },
     hidden: { width: 1, height: 1, opacity: 0 },
+    scroll: { flex: 1 },
     container: { padding: 16, paddingBottom: 32 },
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
     back: { fontSize: 16, color: C.primary, fontWeight: '600' },
     levelLabel: { fontSize: 13, color: C.muted, fontWeight: '600' },
+    controls: { marginBottom: 16 },
+    noteArrow: { position: 'absolute', left: -9, fontSize: 20, color: C.primary },
     scoreRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
     scoreChip: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1.5, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6, backgroundColor: C.card },
     scoreCount: { fontSize: 22, fontWeight: '800' },
     scoreLbl: { fontSize: 12, color: C.muted, fontWeight: '600' },
     progress: { textAlign: 'center', color: C.muted, fontSize: 13, marginTop: 10 },
     listening: { textAlign: 'center', color: C.muted, fontSize: 12, marginTop: 4 },
-    keyboardWrap: { marginTop: 14 },
+    keyboardFooter: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 10, backgroundColor: C.bg, borderTopWidth: 1, borderTopColor: C.border },
+    stopFooter: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 10, backgroundColor: C.bg, borderTopWidth: 1, borderTopColor: C.border },
     btnArea: { marginTop: 24, gap: 10 },
     startBtn: { backgroundColor: C.primary, borderRadius: 16, paddingVertical: 18, alignItems: 'center', shadowColor: C.primary, shadowOpacity: 0.4, shadowRadius: 10, shadowOffset: { width: 0, height: 5 }, elevation: 5 },
     startBtnTxt: { color: '#fff', fontSize: 18, fontWeight: '800' },

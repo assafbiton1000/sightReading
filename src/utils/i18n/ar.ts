@@ -40,6 +40,7 @@ export const ar: T = {
 
   correctLabel: 'صحيح',
   wrongLabel: 'خطأ',
+  skippedLabel: 'لم يُعزف',
   noteProgress: 'نوتة {n} / {total}',
   tryAgain: 'حاول مرة أخرى',
   newExercise: 'تمرين جديد',
@@ -62,6 +63,9 @@ export const ar: T = {
   showScoreBtn: 'عرض النتيجة النهائية',
   rhythmErrorsLabel: 'أخطاء الإيقاع',
   showCorrectBtn: 'الاستماع إلى الأداء الصحيح',
+  showYourBtn: 'استمع إلى أدائك',
+  songChooseTitle: 'كيف تريد فتح هذه الأغنية؟',
+  practiceModeBtn: 'تدريب',
 
   learningTitle: 'التعلم',
   notesCount: 'نوتات',

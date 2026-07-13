@@ -40,6 +40,7 @@ export const de: T = {
 
   correctLabel: 'Richtig',
   wrongLabel: 'Falsch',
+  skippedLabel: 'Nicht gespielt',
   noteProgress: 'Note {n} / {total}',
   tryAgain: 'Nochmal versuchen',
   newExercise: 'Neue Übung',
@@ -62,6 +63,9 @@ export const de: T = {
   showScoreBtn: 'Endpunktzahl anzeigen',
   rhythmErrorsLabel: 'Rhythmusfehler',
   showCorrectBtn: 'Korrekte Version anhören',
+  showYourBtn: 'Anhören, wie du gespielt hast',
+  songChooseTitle: 'Wie möchtest du dieses Lied öffnen?',
+  practiceModeBtn: 'Üben',
 
   learningTitle: 'Lernen',
   notesCount: 'Noten',

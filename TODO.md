@@ -74,7 +74,7 @@
 - [x] **`android.package` חסר** — נוסף ב-`app.json`: `android.package` ו-`ios.bundleIdentifier` שניהם `com.freepacepiano.app`. שם התצוגה עודכן ל-"FreePace Piano" (`expo.name`); ה-`slug`/`scheme` נשארו `sightreading` בכוונה
 - [x] **`eas.json` חסר** — נוצר עם פרופילי `development`/`preview`/`production` (`production` בונה `.aab` דרך `android.buildType: "app-bundle"`, `preview` בונה `.apk` להתקנה ישירה). הפרויקט קושר בפועל לחשבון EAS (`app.json` מכיל `extra.eas.projectId` ו-`owner: "assafbiton"`)
 - [x] **חשבון Google Play Console** — נרשם, ואימות הזהות של המפתח הושלם (2026-07-13)
-- [ ] **מדיניות פרטיות** — חובה כי האפליקציה מבקשת `RECORD_AUDIO`; צריך עמוד ציבורי זמין באינטרנט שמסביר שהאודיו מעובד מקומית בלבד ולא נשלח לשרת. **טיוטה מוכנה** ב-`docs/privacy-policy.html` (אנגלית) — נשאר רק לארח אותה בכתובת ציבורית (למשל GitHub Pages) ולהדביק את הקישור בקונסולה
+- [x] **מדיניות פרטיות** — מאורחת בפועל דרך GitHub Pages: **https://assafbiton1000.github.io/sightReading/privacy-policy.html** (מקור: `docs/privacy-policy.html`, נדלק 2026-07-13). נשאר רק להדביק את הקישור בטופס "App content → Privacy policy" בקונסולה
 - [ ] **טופס Data Safety בקונסולה** — הצהרה חובה על אופן השימוש בנתוני המיקרופון
 - [ ] **הצדקת הרשאה רגישה (RECORD_AUDIO)** — טופס "App content" בקונסולה דורש הסבר למה האפליקציה צריכה גישה למיקרופון
 - [ ] **חומרי Store listing** — **טיוטת טקסט מוכנה** ב-`docs/store-listing.md` (כותרת, תיאור קצר, תיאור מלא — אנגלית). עדיין חסר: feature graphic (1024×500) ולפחות 2 צילומי מסך (אלה מדיה חזותית, לא ניתן להפיק אוטומטית)

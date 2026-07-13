@@ -42,26 +42,12 @@ function addDays(d: Date, n: number): Date {
   return copy;
 }
 
-// A streak is "alive" as long as the most recent training day is today or
-// yesterday — practicing today isn't required to keep it, only to extend it.
-// It only resets to 0 once a full day has been skipped entirely.
+// The streak counts distinct calendar days trained (each local midnight-to-
+// midnight day counts once, no matter how many sessions happen within it).
+// Skipping a day never zeroes it or breaks a "chain" — it just doesn't add
+// another day until you train again, so the number only ever holds or grows.
 function computeStreak(dayStrs: Set<string>): number {
-  const today = new Date();
-  const todayStr = toDayStr(today);
-  const yesterdayStr = toDayStr(addDays(today, -1));
-
-  let anchor: Date;
-  if (dayStrs.has(todayStr)) anchor = today;
-  else if (dayStrs.has(yesterdayStr)) anchor = addDays(today, -1);
-  else return 0;
-
-  let streak = 0;
-  let cursor = anchor;
-  while (dayStrs.has(toDayStr(cursor))) {
-    streak++;
-    cursor = addDays(cursor, -1);
-  }
-  return streak;
+  return dayStrs.size;
 }
 
 const Ctx = createContext<HistoryCtx | null>(null);

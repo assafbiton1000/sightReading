@@ -7,10 +7,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useLang } from '../context/LangContext';
+import { useProfile } from '../context/ProfileContext';
 import { useTheme, ThemeColors } from '../utils/theme';
 import { T } from '../utils/i18n';
 import { getFaq, FaqCategory } from '../constants/faq';
 import { ForumPost, loadPosts, addPost, addReply, deletePost } from '../utils/forumStore';
+import { badgeForEmail } from '../constants/badges';
 import AppHeader from '../components/AppHeader';
 
 type Styles = ReturnType<typeof makeStyles>;
@@ -29,8 +31,12 @@ function relTime(ts: number, t: T): string {
 export default function HelpScreen() {
   const navigation = useNavigation();
   const { t, lang } = useLang();
+  const { profile } = useProfile();
   const C = useTheme();
   const s = makeStyles(C);
+
+  // Only the "Code Composer" (developer) badge can delete forum posts.
+  const canDelete = profile ? badgeForEmail(profile.email) === 'developer' : false;
 
   const [tab, setTab] = useState<Tab>('faq');
   const [posts, setPosts] = useState<ForumPost[]>([]);
@@ -68,12 +74,13 @@ export default function HelpScreen() {
               post={selectedPost}
               onPostsChange={setPosts}
               onDeleted={() => setSelectedPostId(null)}
+              canDelete={canDelete}
               t={t} C={C} s={s}
             />
           ) : tab === 'faq' ? (
             <FaqSection t={t} lang={lang} C={C} s={s} />
           ) : (
-            <ForumSection posts={posts} onPostsChange={setPosts} onOpenPost={setSelectedPostId} t={t} C={C} s={s} />
+            <ForumSection posts={posts} onPostsChange={setPosts} onOpenPost={setSelectedPostId} canDelete={canDelete} t={t} C={C} s={s} />
           )}
         </ScrollView>
       </KeyboardAvoidingView>
@@ -163,9 +170,9 @@ function ConfirmDeleteModal({ visible, onCancel, onConfirm, t, s }: {
   );
 }
 
-function ForumSection({ posts, onPostsChange, onOpenPost, t, C, s }: {
+function ForumSection({ posts, onPostsChange, onOpenPost, canDelete, t, C, s }: {
   posts: ForumPost[]; onPostsChange: (p: ForumPost[]) => void; onOpenPost: (id: string) => void;
-  t: T; C: ThemeColors; s: Styles;
+  canDelete: boolean; t: T; C: ThemeColors; s: Styles;
 }) {
   const [askOpen, setAskOpen] = useState(false);
   const [name, setName] = useState('');
@@ -218,8 +225,13 @@ function ForumSection({ posts, onPostsChange, onOpenPost, t, C, s }: {
                 <Feather name="message-square" size={12} color={C.primary} />
                 <Text style={s.repliesBadgeTxt}>{t.repliesCount.replace('{n}', String(post.replies.length))}</Text>
               </View>
-              <TouchableOpacity style={s.trashBtn} onPress={() => setConfirmDeleteId(post.id)} activeOpacity={0.7}>
-                <Feather name="trash-2" size={14} color="#ef4444" />
+              <TouchableOpacity
+                style={[s.trashBtn, !canDelete && s.publishBtnDisabled]}
+                onPress={() => setConfirmDeleteId(post.id)}
+                disabled={!canDelete}
+                activeOpacity={0.7}
+              >
+                <Feather name="trash-2" size={14} color={canDelete ? '#ef4444' : C.muted} />
               </TouchableOpacity>
             </View>
           </View>
@@ -279,8 +291,9 @@ function ForumSection({ posts, onPostsChange, onOpenPost, t, C, s }: {
   );
 }
 
-function ThreadView({ post, onPostsChange, onDeleted, t, C, s }: {
-  post: ForumPost; onPostsChange: (p: ForumPost[]) => void; onDeleted: () => void; t: T; C: ThemeColors; s: Styles;
+function ThreadView({ post, onPostsChange, onDeleted, canDelete, t, C, s }: {
+  post: ForumPost; onPostsChange: (p: ForumPost[]) => void; onDeleted: () => void;
+  canDelete: boolean; t: T; C: ThemeColors; s: Styles;
 }) {
   const [reply, setReply] = useState('');
   const [name, setName] = useState('');
@@ -308,8 +321,13 @@ function ThreadView({ post, onPostsChange, onDeleted, t, C, s }: {
         <Text style={s.threadBody}>{post.body}</Text>
         <View style={s.postMeta}>
           <Text style={s.postMetaTxt}>{post.author} · {relTime(post.createdAt, t)}</Text>
-          <TouchableOpacity style={s.trashBtn} onPress={() => setConfirmOpen(true)} activeOpacity={0.7}>
-            <Feather name="trash-2" size={14} color="#ef4444" />
+          <TouchableOpacity
+            style={[s.trashBtn, !canDelete && s.publishBtnDisabled]}
+            onPress={() => setConfirmOpen(true)}
+            disabled={!canDelete}
+            activeOpacity={0.7}
+          >
+            <Feather name="trash-2" size={14} color={canDelete ? '#ef4444' : C.muted} />
           </TouchableOpacity>
         </View>
       </View>

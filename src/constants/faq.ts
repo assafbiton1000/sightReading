@@ -78,7 +78,7 @@ const FAQ_CONTENT: Partial<Record<Lang, FaqItem[]>> = {
       id: 'streak-how',
       category: 'app',
       q: 'איך נספר רצף ימי האימון שלי?',
-      a: 'כל יום שבו השלמתם לפחות תרגול אחד (תרגול, האזנה או למידה) נספר כיום אימון. הרצף נשמר כל עוד התאמנתם היום או אתמול — כלומר, הרצף לא נשבר בבוקר לפני שהספקתם להתאמן.\n\nהרצף מתאפס רק אחרי יום שלם שדולג לחלוטין. את הרצף הנוכחי אפשר לראות במסך הבית ובמסך הסטטיסטיקה.',
+      a: 'כל יום שבו השלמתם לפחות תרגול אחד (תרגול, האזנה או למידה) נספר כיום אימון, מחצות ועד חצות לפי השעון המקומי. הרצף לעולם לא מתאפס — אם דילגתם על יום (או כמה ימים), המספר פשוט לא עולה עד שתחזרו להתאמן, ואז הוא ממשיך בדיוק מאיפה שנעצר. את הרצף הנוכחי אפשר לראות במסך הבית ובמסך הסטטיסטיקה.',
     },
     {
       id: 'data-where',
@@ -158,7 +158,7 @@ const FAQ_CONTENT: Partial<Record<Lang, FaqItem[]>> = {
       id: 'streak-how',
       category: 'app',
       q: 'How is my practice streak counted?',
-      a: "Every day on which you complete at least one session (practice, listening or learning) counts as a training day. The streak stays alive as long as you trained today or yesterday — so it doesn't break in the morning before you've had a chance to practice.\n\nIt only resets after a full day is skipped entirely. You can see your current streak on the home screen and the statistics screen.",
+      a: "Every day on which you complete at least one session (practice, listening or learning) counts as a training day, from local midnight to midnight. The streak never resets — if you skip a day (or several), the number simply doesn't go up until you train again, then it keeps counting right from where it left off. You can see your current streak on the home screen and the statistics screen.",
     },
     {
       id: 'data-where',

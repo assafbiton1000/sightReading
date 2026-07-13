@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "sightreading",
+    "name": "FreePace Piano",
     "slug": "sightreading",
     "scheme": "sightreading",
     "version": "1.0.0",
@@ -8,12 +8,14 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
+      "bundleIdentifier": "com.freepacepiano.app",
       "supportsTablet": true,
       "infoPlist": {
         "NSMicrophoneUsageDescription": "האפליקציה צריכה גישה למיקרופון כדי לזהות את הנגינה שלך"
       }
     },
     "android": {
+      "package": "com.freepacepiano.app",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -33,6 +35,12 @@
       "@react-native-community/datetimepicker",
       "expo-notifications",
       "expo-web-browser"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "2422c0a7-6818-4a29-8510-40db3553c17c"
+      }
+    },
+    "owner": "assafbiton"
   }
 }

@@ -259,7 +259,7 @@ export const en: T = {
 
   pointsLabel: 'Points',
   leaderboardTitle: 'Leaderboard',
-  leaderboardIntro: 'Earn points by practicing (1 per minute) and watching a support ad (0.5 each), and compete with other users.',
+  leaderboardIntro: 'Earn points by practicing (1 per minute) and watching a support ad (2 each), and compete with other users.',
   leaderboardSignInPrompt: 'Sign in to appear on the leaderboard and back up your points to the cloud.',
   leaderboardSignInBtn: 'Sign In',
   leaderboardEmpty: 'No scores yet — be the first!',

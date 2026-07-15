@@ -23,7 +23,7 @@ export interface HistoryStats {
 interface HistoryCtx {
   loaded: boolean;
   stats: HistoryStats;
-  /** Running total, in points — 1 per tracked minute + 0.5 per rewarded-ad watch.
+  /** Running total, in points — 1 per tracked minute + 2 per rewarded-ad watch.
    * Persisted separately from `records` so it never shrinks when old records
    * age out of the 90-day retention window. */
   points: number;
@@ -36,7 +36,7 @@ const STORAGE_KEY = '@sightreading/history';
 const POINTS_STORAGE_KEY = '@sightreading/points';
 const RETENTION_DAYS = 90;
 const POINTS_PER_MINUTE = 1;
-const POINTS_PER_AD = 0.5;
+const POINTS_PER_AD = 2;
 
 function toDayStr(d: Date): string {
   const y = d.getFullYear();

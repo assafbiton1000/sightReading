@@ -259,7 +259,7 @@ export const de: T = {
 
   pointsLabel: 'Punkte',
   leaderboardTitle: 'Bestenliste',
-  leaderboardIntro: 'Sammle Punkte durch Üben (1 pro Minute) und durch Ansehen einer Unterstützungs-Werbung (je 0,5), und tritt gegen andere Nutzer an.',
+  leaderboardIntro: 'Sammle Punkte durch Üben (1 pro Minute) und durch Ansehen einer Unterstützungs-Werbung (je 2), und tritt gegen andere Nutzer an.',
   leaderboardSignInPrompt: 'Melde dich an, um in der Bestenliste zu erscheinen und deine Punkte in der Cloud zu sichern.',
   leaderboardSignInBtn: 'Anmelden',
   leaderboardEmpty: 'Noch keine Punktzahlen — sei der Erste!',

@@ -259,7 +259,7 @@ export const pt: T = {
 
   pointsLabel: 'Pontos',
   leaderboardTitle: 'Classificação',
-  leaderboardIntro: 'Ganhe pontos praticando (1 por minuto) e assistindo a um anúncio de apoio (0,5 cada), e compita com outros usuários.',
+  leaderboardIntro: 'Ganhe pontos praticando (1 por minuto) e assistindo a um anúncio de apoio (2 cada), e compita com outros usuários.',
   leaderboardSignInPrompt: 'Faça login para aparecer na classificação e salvar seus pontos na nuvem.',
   leaderboardSignInBtn: 'Entrar',
   leaderboardEmpty: 'Ainda sem pontuações — seja o primeiro!',

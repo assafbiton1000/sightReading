@@ -101,6 +101,7 @@ export const de: T = {
   drawerHelp: 'Hilfe & Support',
   drawerAbout: 'Über',
   drawerSupport: 'Unterstütze mich',
+  drawerLeaderboard: 'Bestenliste',
   drawerProfile: 'Profil',
   drawerLogout: 'Abmelden',
 
@@ -255,4 +256,13 @@ export const de: T = {
   watchAdLoading: 'Werbung wird geladen...',
   watchAdThanks: 'Vielen Dank für deine Unterstützung! 🙏',
   watchAdError: 'Gerade konnte keine Werbung geladen werden. Bitte später erneut versuchen.',
+
+  pointsLabel: 'Punkte',
+  leaderboardTitle: 'Bestenliste',
+  leaderboardIntro: 'Sammle Punkte durch Üben (1 pro Minute) und durch Ansehen einer Unterstützungs-Werbung (je 0,5), und tritt gegen andere Nutzer an.',
+  leaderboardSignInPrompt: 'Melde dich an, um in der Bestenliste zu erscheinen und deine Punkte in der Cloud zu sichern.',
+  leaderboardSignInBtn: 'Anmelden',
+  leaderboardEmpty: 'Noch keine Punktzahlen — sei der Erste!',
+  leaderboardYou: 'Du',
+  leaderboardNotConfigured: 'Die Bestenliste wird bald verfügbar sein.',
 };

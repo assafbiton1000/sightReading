@@ -11,6 +11,7 @@ import { supabase, isSupabaseConfigured } from '../utils/supabase';
 WebBrowser.maybeCompleteAuthSession();
 
 export interface UserProfile {
+  id: string;
   name: string;
   email: string;
   joinedAt: number;
@@ -62,7 +63,7 @@ function profileFromSession(session: Session | null): UserProfile | null {
     (typeof meta.name === 'string' && meta.name) ||
     (typeof meta.full_name === 'string' && meta.full_name) ||
     (u.email ? u.email.split('@')[0] : '');
-  return { name, email: u.email ?? '', joinedAt: Date.parse(u.created_at) || Date.now() };
+  return { id: u.id, name, email: u.email ?? '', joinedAt: Date.parse(u.created_at) || Date.now() };
 }
 
 function mapError(error: { message?: string; code?: string } | AuthError | null | undefined): AuthErrorCode {

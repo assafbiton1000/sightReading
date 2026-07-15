@@ -101,6 +101,7 @@ export const ar: T = {
   drawerHelp: 'المساعدة والدعم',
   drawerAbout: 'حول',
   drawerSupport: 'ادعمني',
+  drawerLeaderboard: 'لوحة المتصدرين',
   drawerProfile: 'الملف الشخصي',
   drawerLogout: 'تسجيل الخروج',
 
@@ -255,4 +256,13 @@ export const ar: T = {
   watchAdLoading: 'جارٍ تحميل الإعلان...',
   watchAdThanks: 'شكرًا جزيلاً على دعمك! 🙏',
   watchAdError: 'تعذر تحميل إعلان الآن. حاول مرة أخرى لاحقًا.',
+
+  pointsLabel: 'النقاط',
+  leaderboardTitle: 'لوحة المتصدرين',
+  leaderboardIntro: 'اكسب نقاطًا بالتدريب (نقطة لكل دقيقة) ومشاهدة إعلان الدعم (0.5 لكل مشاهدة)، وتنافس مع مستخدمين آخرين.',
+  leaderboardSignInPrompt: 'سجّل الدخول للظهور في لوحة المتصدرين ونسخ نقاطك احتياطيًا إلى السحابة.',
+  leaderboardSignInBtn: 'تسجيل الدخول',
+  leaderboardEmpty: 'لا توجد نتائج بعد — كن الأول!',
+  leaderboardYou: 'أنت',
+  leaderboardNotConfigured: 'ستكون لوحة المتصدرين متاحة قريبًا.',
 };

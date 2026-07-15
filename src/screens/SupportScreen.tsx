@@ -6,6 +6,7 @@ import { useNavigation } from '@react-navigation/native';
 import * as WebBrowser from 'expo-web-browser';
 import { useRewardedAd, TestIds } from 'react-native-google-mobile-ads';
 import { useLang } from '../context/LangContext';
+import { useHistory } from '../context/HistoryContext';
 import { useTheme, ThemeColors } from '../utils/theme';
 import { BUY_ME_A_COFFEE_URL, REWARDED_AD_UNIT_ID } from '../constants/support';
 import AppHeader from '../components/AppHeader';
@@ -16,6 +17,7 @@ type Styles = ReturnType<typeof makeStyles>;
 export default function SupportScreen() {
   const navigation = useNavigation();
   const { t } = useLang();
+  const { recordAdWatch } = useHistory();
   const C = useTheme();
   const s = makeStyles(C);
 
@@ -25,8 +27,11 @@ export default function SupportScreen() {
   const rewarded = useRewardedAd(adUnitId);
 
   useEffect(() => {
-    if (rewarded.isEarnedReward) setThanked(true);
-  }, [rewarded.isEarnedReward]);
+    if (rewarded.isEarnedReward) {
+      setThanked(true);
+      recordAdWatch();
+    }
+  }, [rewarded.isEarnedReward, recordAdWatch]);
 
   useEffect(() => {
     if (rewarded.error) setAdError(true);
@@ -35,6 +40,12 @@ export default function SupportScreen() {
   useEffect(() => {
     rewarded.load();
   }, [rewarded.load]);
+
+  // Load the next ad as soon as one closes, so watching (and earning points
+  // for) more than one in a visit doesn't need leaving and re-entering the screen.
+  useEffect(() => {
+    if (rewarded.isClosed) rewarded.load();
+  }, [rewarded.isClosed, rewarded.load]);
 
   function handleWatchAd() {
     setAdError(false);

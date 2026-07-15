@@ -131,6 +131,7 @@ export interface T {
   drawerHelp: string;
   drawerAbout: string;
   drawerSupport: string;
+  drawerLeaderboard: string;
   drawerProfile: string;
   drawerLogout: string;
 
@@ -293,4 +294,14 @@ export interface T {
   watchAdLoading: string;
   watchAdThanks: string;
   watchAdError: string;
+
+  // points + leaderboard
+  pointsLabel: string;
+  leaderboardTitle: string;
+  leaderboardIntro: string;
+  leaderboardSignInPrompt: string;
+  leaderboardSignInBtn: string;
+  leaderboardEmpty: string;
+  leaderboardYou: string;
+  leaderboardNotConfigured: string;
 }

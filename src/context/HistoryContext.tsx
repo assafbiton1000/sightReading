@@ -23,11 +23,20 @@ export interface HistoryStats {
 interface HistoryCtx {
   loaded: boolean;
   stats: HistoryStats;
+  /** Running total, in points — 1 per tracked minute + 0.5 per rewarded-ad watch.
+   * Persisted separately from `records` so it never shrinks when old records
+   * age out of the 90-day retention window. */
+  points: number;
   recordSession: (input: { mode: SessionMode; minutes: number; correct?: number; total?: number }) => void;
+  /** Call when the user finishes watching a rewarded ad on the Support screen. */
+  recordAdWatch: () => void;
 }
 
 const STORAGE_KEY = '@sightreading/history';
+const POINTS_STORAGE_KEY = '@sightreading/points';
 const RETENTION_DAYS = 90;
+const POINTS_PER_MINUTE = 1;
+const POINTS_PER_AD = 0.5;
 
 function toDayStr(d: Date): string {
   const y = d.getFullYear();
@@ -54,20 +63,38 @@ const Ctx = createContext<HistoryCtx | null>(null);
 
 export function HistoryProvider({ children }: { children: React.ReactNode }) {
   const [records, setRecords] = useState<SessionRecord[]>([]);
+  const [points, setPoints] = useState(0);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    AsyncStorage.getItem(STORAGE_KEY)
-      .then(raw => {
-        if (cancelled || !raw) return;
-        try {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed)) setRecords(parsed);
-        } catch (_) {}
+    Promise.all([
+      AsyncStorage.getItem(STORAGE_KEY),
+      AsyncStorage.getItem(POINTS_STORAGE_KEY),
+    ])
+      .then(([rawRecords, rawPoints]) => {
+        if (cancelled) return;
+        if (rawRecords) {
+          try {
+            const parsed = JSON.parse(rawRecords);
+            if (Array.isArray(parsed)) setRecords(parsed);
+          } catch (_) {}
+        }
+        if (rawPoints) {
+          const n = parseFloat(rawPoints);
+          if (!Number.isNaN(n)) setPoints(n);
+        }
       })
       .finally(() => { if (!cancelled) setLoaded(true); });
     return () => { cancelled = true; };
+  }, []);
+
+  const addPoints = useCallback((amount: number) => {
+    setPoints(prev => {
+      const next = prev + amount;
+      AsyncStorage.setItem(POINTS_STORAGE_KEY, String(next)).catch(() => {});
+      return next;
+    });
   }, []);
 
   const recordSession = useCallback((input: { mode: SessionMode; minutes: number; correct?: number; total?: number }) => {
@@ -87,7 +114,12 @@ export function HistoryProvider({ children }: { children: React.ReactNode }) {
       AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next)).catch(() => {});
       return next;
     });
-  }, []);
+    addPoints(input.minutes * POINTS_PER_MINUTE);
+  }, [addPoints]);
+
+  const recordAdWatch = useCallback(() => {
+    addPoints(POINTS_PER_AD);
+  }, [addPoints]);
 
   const stats = useMemo<HistoryStats>(() => {
     const todayStr = toDayStr(new Date());
@@ -117,7 +149,7 @@ export function HistoryProvider({ children }: { children: React.ReactNode }) {
     };
   }, [records]);
 
-  return <Ctx.Provider value={{ loaded, stats, recordSession }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ loaded, stats, points, recordSession, recordAdWatch }}>{children}</Ctx.Provider>;
 }
 
 export function useHistory(): HistoryCtx {

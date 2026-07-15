@@ -101,6 +101,7 @@ export const he: T = {
   drawerHelp: 'עזרה ותמיכה',
   drawerAbout: 'אודות',
   drawerSupport: 'תמכו בי',
+  drawerLeaderboard: 'טבלת מובילים',
   drawerProfile: 'פרופיל',
   drawerLogout: 'התנתקות',
 
@@ -255,4 +256,13 @@ export const he: T = {
   watchAdLoading: 'טוען פרסומת...',
   watchAdThanks: 'תודה רבה על התמיכה! 🙏',
   watchAdError: 'לא הצלחנו לטעון פרסומת כרגע. נסו שוב מאוחר יותר.',
+
+  pointsLabel: 'נקודות',
+  leaderboardTitle: 'טבלת מובילים',
+  leaderboardIntro: 'צברו נקודות מתרגול (דקה = נקודה) ומצפייה בפרסומת תמיכה (חצי נקודה), והתחרו עם משתמשים אחרים.',
+  leaderboardSignInPrompt: 'התחברו כדי להופיע בטבלת המובילים ולשמור על הנקודות שלכם בענן.',
+  leaderboardSignInBtn: 'התחברות',
+  leaderboardEmpty: 'עדיין אין נקודות בטבלה — היו הראשונים!',
+  leaderboardYou: 'אתם',
+  leaderboardNotConfigured: 'טבלת המובילים תהיה זמינה בקרוב.',
 };

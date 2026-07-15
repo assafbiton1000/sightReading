@@ -101,6 +101,7 @@ export const fr: T = {
   drawerHelp: 'Aide et support',
   drawerAbout: 'À propos',
   drawerSupport: 'Me soutenir',
+  drawerLeaderboard: 'Classement',
   drawerProfile: 'Profil',
   drawerLogout: 'Déconnexion',
 
@@ -255,4 +256,13 @@ export const fr: T = {
   watchAdLoading: 'Chargement de la publicité...',
   watchAdThanks: 'Merci beaucoup pour votre soutien ! 🙏',
   watchAdError: "Impossible de charger une publicité pour le moment. Réessayez plus tard.",
+
+  pointsLabel: 'Points',
+  leaderboardTitle: 'Classement',
+  leaderboardIntro: "Gagnez des points en vous entraînant (1 par minute) et en regardant une publicité de soutien (0,5 chacune), et affrontez d'autres utilisateurs.",
+  leaderboardSignInPrompt: 'Connectez-vous pour apparaître dans le classement et sauvegarder vos points dans le cloud.',
+  leaderboardSignInBtn: 'Se connecter',
+  leaderboardEmpty: "Aucun score pour l'instant — soyez le premier !",
+  leaderboardYou: 'Vous',
+  leaderboardNotConfigured: 'Le classement sera bientôt disponible.',
 };

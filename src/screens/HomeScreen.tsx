@@ -10,7 +10,7 @@ import { RootStackParamList } from '../navigation/types';
 import { useLang } from '../context/LangContext';
 import { useHistory } from '../context/HistoryContext';
 import { useTheme, ThemeColors } from '../utils/theme';
-import { formatMinutes } from '../utils/format';
+import { formatMinutes, formatPoints } from '../utils/format';
 import AppHeader from '../components/AppHeader';
 
 type Nav = StackNavigationProp<RootStackParamList, 'Home'>;
@@ -33,7 +33,7 @@ const MODE_COLORS: Record<Mode, { base: string; tint: string }> = {
 export default function HomeScreen() {
   const navigation = useNavigation<Nav>();
   const { t } = useLang();
-  const { stats } = useHistory();
+  const { stats, points } = useHistory();
   const C = useTheme();
   const s = makeStyles(C);
 
@@ -95,6 +95,16 @@ export default function HomeScreen() {
             </View>
           </View>
         </View>
+
+        <TouchableOpacity style={s.pointsBar} onPress={() => navigation.navigate('Leaderboard')} activeOpacity={0.85}>
+          <View style={[s.statPillIcon, { backgroundColor: 'rgba(245,158,11,0.14)' }]}>
+            <Feather name="star" size={16} color="#f59e0b" />
+          </View>
+          <Text style={s.pointsBarTxt}>
+            <Text style={s.pointsBarValue}>{formatPoints(points)}</Text> {t.pointsLabel}
+          </Text>
+          <Feather name="chevron-right" size={16} color={C.muted} />
+        </TouchableOpacity>
 
         <Label s={s}>{t.chooseMode}</Label>
         <View style={s.modesCol}>
@@ -279,6 +289,13 @@ function makeStyles(C: ThemeColors) {
     statPillValue: { fontFamily: 'Heebo_800ExtraBold', fontSize: 17, color: C.text },
     statPillUnit: { fontFamily: 'Heebo_500Medium', fontSize: 11, color: C.muted },
     statPillLabel: { fontFamily: 'Heebo_500Medium', fontSize: 10.5, color: C.muted, marginTop: 1 },
+
+    pointsBar: {
+      flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10,
+      backgroundColor: C.card, borderRadius: 14, paddingVertical: 10, paddingHorizontal: 14, ...softShadow,
+    },
+    pointsBarTxt: { flex: 1, fontFamily: 'Heebo_500Medium', fontSize: 13, color: C.text },
+    pointsBarValue: { fontFamily: 'Heebo_800ExtraBold', fontSize: 15, color: C.text },
 
     label: { fontFamily: 'Heebo_700Bold', fontSize: 13, color: C.muted, letterSpacing: 0.2, marginTop: 28, marginBottom: 12 },
 

@@ -101,6 +101,7 @@ export const ru: T = {
   drawerHelp: 'Помощь и поддержка',
   drawerAbout: 'О приложении',
   drawerSupport: 'Поддержать меня',
+  drawerLeaderboard: 'Таблица лидеров',
   drawerProfile: 'Профиль',
   drawerLogout: 'Выйти',
 
@@ -255,4 +256,13 @@ export const ru: T = {
   watchAdLoading: 'Загрузка рекламы...',
   watchAdThanks: 'Большое спасибо за вашу поддержку! 🙏',
   watchAdError: 'Не удалось загрузить рекламу сейчас. Попробуйте позже.',
+
+  pointsLabel: 'Очки',
+  leaderboardTitle: 'Таблица лидеров',
+  leaderboardIntro: 'Зарабатывайте очки, тренируясь (1 очко в минуту) и просматривая рекламу поддержки (по 0,5 очка), и соревнуйтесь с другими пользователями.',
+  leaderboardSignInPrompt: 'Войдите, чтобы появиться в таблице лидеров и сохранить свои очки в облаке.',
+  leaderboardSignInBtn: 'Войти',
+  leaderboardEmpty: 'Пока нет результатов — будьте первым!',
+  leaderboardYou: 'Вы',
+  leaderboardNotConfigured: 'Таблица лидеров скоро будет доступна.',
 };

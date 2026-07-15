@@ -29,13 +29,15 @@ import ProfileScreen from './src/screens/ProfileScreen';
 import AuthScreen from './src/screens/AuthScreen';
 import ResetPasswordScreen from './src/screens/ResetPasswordScreen';
 import SupportScreen from './src/screens/SupportScreen';
+import LeaderboardScreen from './src/screens/LeaderboardScreen';
 import mobileAds from 'react-native-google-mobile-ads';
 import { LangProvider, useLang } from './src/context/LangContext';
 import { SettingsProvider, useSettings } from './src/context/SettingsContext';
-import { HistoryProvider } from './src/context/HistoryContext';
+import { HistoryProvider, useHistory } from './src/context/HistoryContext';
 import { ProfileProvider, useProfile } from './src/context/ProfileContext';
 import { LIGHT_THEME, DARK_THEME } from './src/utils/theme';
 import { syncDailyReminder } from './src/utils/dailyReminder';
+import { pushLeaderboardScore } from './src/utils/leaderboard';
 
 const Stack = createStackNavigator<RootStackParamList>();
 
@@ -44,7 +46,8 @@ const Stack = createStackNavigator<RootStackParamList>();
 function AppContent() {
   const { settings, loaded } = useSettings();
   const { t, lang } = useLang();
-  const { passwordRecovery } = useProfile();
+  const { passwordRecovery, profile } = useProfile();
+  const { points } = useHistory();
   const navigationRef = useNavigationContainerRef<RootStackParamList>();
   const [navReady, setNavReady] = useState(false);
   const theme = settings.darkMode ? DARK_THEME : LIGHT_THEME;
@@ -81,6 +84,14 @@ function AppContent() {
 
   useEffect(() => { mobileAds().initialize(); }, []);
 
+  // Pushes the local point total to the leaderboard whenever it changes, but
+  // only once signed in — signed-out users keep earning points locally, they
+  // just don't appear on the shared table until they sign in.
+  useEffect(() => {
+    if (!profile) return;
+    pushLeaderboardScore(profile.id, profile.name, points);
+  }, [profile, points]);
+
   return (
     <NavigationContainer ref={navigationRef} onReady={() => setNavReady(true)} theme={navTheme}>
       <StatusBar style={settings.darkMode ? 'light' : 'dark'} />
@@ -97,6 +108,7 @@ function AppContent() {
         <Stack.Screen name="Help" component={HelpScreen} />
         <Stack.Screen name="About" component={AboutScreen} />
         <Stack.Screen name="Support" component={SupportScreen} />
+        <Stack.Screen name="Leaderboard" component={LeaderboardScreen} />
         <Stack.Screen name="Profile" component={ProfileScreen} />
         <Stack.Screen name="Auth" component={AuthScreen} />
         <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />

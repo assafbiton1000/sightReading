@@ -101,6 +101,7 @@ export const es: T = {
   drawerHelp: 'Ayuda y soporte',
   drawerAbout: 'Acerca de',
   drawerSupport: 'Apóyame',
+  drawerLeaderboard: 'Clasificación',
   drawerProfile: 'Perfil',
   drawerLogout: 'Cerrar sesión',
 
@@ -255,4 +256,13 @@ export const es: T = {
   watchAdLoading: 'Cargando anuncio...',
   watchAdThanks: '¡Muchas gracias por tu apoyo! 🙏',
   watchAdError: 'No se pudo cargar un anuncio ahora. Inténtalo de nuevo más tarde.',
+
+  pointsLabel: 'Puntos',
+  leaderboardTitle: 'Tabla de clasificación',
+  leaderboardIntro: 'Gana puntos practicando (1 por minuto) y viendo un anuncio de apoyo (0,5 cada uno), y compite con otros usuarios.',
+  leaderboardSignInPrompt: 'Inicia sesión para aparecer en la tabla de clasificación y respaldar tus puntos en la nube.',
+  leaderboardSignInBtn: 'Iniciar sesión',
+  leaderboardEmpty: '¡Aún no hay puntuaciones — sé el primero!',
+  leaderboardYou: 'Tú',
+  leaderboardNotConfigured: 'La tabla de clasificación estará disponible pronto.',
 };

@@ -101,6 +101,7 @@ export const en: T = {
   drawerHelp: 'Help & Support',
   drawerAbout: 'About',
   drawerSupport: 'Support Me',
+  drawerLeaderboard: 'Leaderboard',
   drawerProfile: 'Profile',
   drawerLogout: 'Log Out',
 
@@ -255,4 +256,13 @@ export const en: T = {
   watchAdLoading: 'Loading ad...',
   watchAdThanks: 'Thank you so much for your support! 🙏',
   watchAdError: "Couldn't load an ad right now. Please try again later.",
+
+  pointsLabel: 'Points',
+  leaderboardTitle: 'Leaderboard',
+  leaderboardIntro: 'Earn points by practicing (1 per minute) and watching a support ad (0.5 each), and compete with other users.',
+  leaderboardSignInPrompt: 'Sign in to appear on the leaderboard and back up your points to the cloud.',
+  leaderboardSignInBtn: 'Sign In',
+  leaderboardEmpty: 'No scores yet — be the first!',
+  leaderboardYou: 'You',
+  leaderboardNotConfigured: 'The leaderboard will be available soon.',
 };

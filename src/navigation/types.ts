@@ -31,6 +31,7 @@ export type RootStackParamList = {
   Help: undefined;
   About: undefined;
   Support: undefined;
+  Leaderboard: undefined;
   Profile: undefined;
   Auth: { mode?: 'signin' | 'signup' } | undefined;
   /** Reached via the reset-password email deep link (App navigates here automatically). */

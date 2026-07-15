@@ -66,6 +66,40 @@ Google. המדריך המלא כבר כתוב ב-`docs/AUTH_SETUP.md` (סעיף 
 - פרויקט Supabase בחבילה החינמית מושהה אוטומטית אחרי שבוע בלי תנועה — תצטרכו
   להעיר אותו ידנית מהדשבורד אם זה קורה.
 
+### א.7 טבלת ה-Leaderboard (נקודות)
+פיצ'ר הנקודות/טבלת המובילים דורש טבלה חדשה ב-Supabase שעוד לא קיימת. ברגע
+שהפרויקט מוגדר (א.1–א.3), הרץ את זה **פעם אחת** ב-**SQL Editor** בדשבורד:
+
+```sql
+create table public.leaderboard_scores (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  display_name text not null,
+  points numeric not null default 0,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.leaderboard_scores enable row level security;
+
+create policy "Anyone signed in can read the leaderboard"
+  on public.leaderboard_scores for select
+  to authenticated
+  using (true);
+
+create policy "Users can insert only their own score"
+  on public.leaderboard_scores for insert
+  to authenticated
+  with check (auth.uid() = user_id);
+
+create policy "Users can update only their own score"
+  on public.leaderboard_scores for update
+  to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+```
+
+עד שהטבלה תיווצר, הנקודות עדיין נשמרות תקין **על המכשיר** לכל משתמש (לא
+הולך לאיבוד) — רק מסך ה-Leaderboard עצמו יראה "בקרוב" במקום טבלה.
+
 ---
 
 ## חלק ב׳ — הגשה ל-Google Play (מה שעוד חסר)

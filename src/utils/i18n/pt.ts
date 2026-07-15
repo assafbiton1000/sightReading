@@ -101,6 +101,7 @@ export const pt: T = {
   drawerHelp: 'Ajuda e suporte',
   drawerAbout: 'Sobre',
   drawerSupport: 'Apoie-me',
+  drawerLeaderboard: 'Classificação',
   drawerProfile: 'Perfil',
   drawerLogout: 'Sair',
 
@@ -255,4 +256,13 @@ export const pt: T = {
   watchAdLoading: 'Carregando anúncio...',
   watchAdThanks: 'Muito obrigado pelo seu apoio! 🙏',
   watchAdError: 'Não foi possível carregar um anúncio agora. Tente novamente mais tarde.',
+
+  pointsLabel: 'Pontos',
+  leaderboardTitle: 'Classificação',
+  leaderboardIntro: 'Ganhe pontos praticando (1 por minuto) e assistindo a um anúncio de apoio (0,5 cada), e compita com outros usuários.',
+  leaderboardSignInPrompt: 'Faça login para aparecer na classificação e salvar seus pontos na nuvem.',
+  leaderboardSignInBtn: 'Entrar',
+  leaderboardEmpty: 'Ainda sem pontuações — seja o primeiro!',
+  leaderboardYou: 'Você',
+  leaderboardNotConfigured: 'A classificação estará disponível em breve.',
 };

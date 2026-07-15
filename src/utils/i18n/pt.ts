@@ -256,6 +256,7 @@ export const pt: T = {
   watchAdLoading: 'Carregando anúncio...',
   watchAdThanks: 'Muito obrigado pelo seu apoio! 🙏',
   watchAdError: 'Não foi possível carregar um anúncio agora. Tente novamente mais tarde.',
+  watchAdPointsEarned: 'Você ganhou {points} pontos!',
 
   pointsLabel: 'Pontos',
   leaderboardTitle: 'Classificação',
@@ -265,4 +266,6 @@ export const pt: T = {
   leaderboardEmpty: 'Ainda sem pontuações — seja o primeiro!',
   leaderboardYou: 'Você',
   leaderboardNotConfigured: 'A classificação estará disponível em breve.',
+
+  startPlayingHint: 'Comece a tocar',
 };

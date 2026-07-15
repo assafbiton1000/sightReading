@@ -256,6 +256,7 @@ export const he: T = {
   watchAdLoading: 'טוען פרסומת...',
   watchAdThanks: 'תודה רבה על התמיכה! 🙏',
   watchAdError: 'לא הצלחנו לטעון פרסומת כרגע. נסו שוב מאוחר יותר.',
+  watchAdPointsEarned: 'קיבלת {points} נקודות!',
 
   pointsLabel: 'נקודות',
   leaderboardTitle: 'טבלת מובילים',
@@ -265,4 +266,6 @@ export const he: T = {
   leaderboardEmpty: 'עדיין אין נקודות בטבלה — היו הראשונים!',
   leaderboardYou: 'אתם',
   leaderboardNotConfigured: 'טבלת המובילים תהיה זמינה בקרוב.',
+
+  startPlayingHint: 'התחל לנגן',
 };

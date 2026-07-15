@@ -6,7 +6,7 @@ import { useNavigation } from '@react-navigation/native';
 import * as WebBrowser from 'expo-web-browser';
 import { useRewardedAd, TestIds } from 'react-native-google-mobile-ads';
 import { useLang } from '../context/LangContext';
-import { useHistory } from '../context/HistoryContext';
+import { useHistory, POINTS_PER_AD } from '../context/HistoryContext';
 import { useTheme, ThemeColors } from '../utils/theme';
 import { BUY_ME_A_COFFEE_URL, REWARDED_AD_UNIT_ID } from '../constants/support';
 import AppHeader from '../components/AppHeader';
@@ -115,7 +115,10 @@ export default function SupportScreen() {
         {thanked && (
           <View style={s.thanksBox}>
             <Feather name="heart" size={18} color="#ec4899" />
-            <Text style={s.thanksTxt}>{t.watchAdThanks}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={s.thanksTxt}>{t.watchAdThanks}</Text>
+              <Text style={s.pointsEarnedTxt}>{t.watchAdPointsEarned.replace('{points}', String(POINTS_PER_AD))}</Text>
+            </View>
           </View>
         )}
         {adError && !thanked && (
@@ -153,7 +156,8 @@ function makeStyles(C: ThemeColors) {
       flexDirection: 'row', alignItems: 'center', gap: 10,
       backgroundColor: 'rgba(236,72,153,0.12)', borderRadius: 14, padding: 14, marginTop: 4,
     },
-    thanksTxt: { flex: 1, fontFamily: 'Heebo_700Bold', fontSize: 14, color: C.text },
+    thanksTxt: { fontFamily: 'Heebo_700Bold', fontSize: 14, color: C.text },
+    pointsEarnedTxt: { fontFamily: 'Heebo_600SemiBold', fontSize: 12.5, color: '#f59e0b', marginTop: 2 },
     errorTxt: { fontFamily: 'Heebo_500Medium', fontSize: 13, color: '#ef4444', textAlign: 'center', marginTop: 4 },
   });
 }

@@ -256,6 +256,7 @@ export const de: T = {
   watchAdLoading: 'Werbung wird geladen...',
   watchAdThanks: 'Vielen Dank für deine Unterstützung! 🙏',
   watchAdError: 'Gerade konnte keine Werbung geladen werden. Bitte später erneut versuchen.',
+  watchAdPointsEarned: 'Du hast {points} Punkte erhalten!',
 
   pointsLabel: 'Punkte',
   leaderboardTitle: 'Bestenliste',
@@ -265,4 +266,6 @@ export const de: T = {
   leaderboardEmpty: 'Noch keine Punktzahlen — sei der Erste!',
   leaderboardYou: 'Du',
   leaderboardNotConfigured: 'Die Bestenliste wird bald verfügbar sein.',
+
+  startPlayingHint: 'Beginne zu spielen',
 };

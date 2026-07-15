@@ -36,7 +36,7 @@ const STORAGE_KEY = '@sightreading/history';
 const POINTS_STORAGE_KEY = '@sightreading/points';
 const RETENTION_DAYS = 90;
 const POINTS_PER_MINUTE = 1;
-const POINTS_PER_AD = 2;
+export const POINTS_PER_AD = 2;
 
 function toDayStr(d: Date): string {
   const y = d.getFullYear();

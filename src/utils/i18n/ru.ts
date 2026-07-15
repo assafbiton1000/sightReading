@@ -256,6 +256,7 @@ export const ru: T = {
   watchAdLoading: 'Загрузка рекламы...',
   watchAdThanks: 'Большое спасибо за вашу поддержку! 🙏',
   watchAdError: 'Не удалось загрузить рекламу сейчас. Попробуйте позже.',
+  watchAdPointsEarned: 'Вы получили {points} очков!',
 
   pointsLabel: 'Очки',
   leaderboardTitle: 'Таблица лидеров',
@@ -265,4 +266,6 @@ export const ru: T = {
   leaderboardEmpty: 'Пока нет результатов — будьте первым!',
   leaderboardYou: 'Вы',
   leaderboardNotConfigured: 'Таблица лидеров скоро будет доступна.',
+
+  startPlayingHint: 'Начните играть',
 };

@@ -256,6 +256,7 @@ export const ar: T = {
   watchAdLoading: 'جارٍ تحميل الإعلان...',
   watchAdThanks: 'شكرًا جزيلاً على دعمك! 🙏',
   watchAdError: 'تعذر تحميل إعلان الآن. حاول مرة أخرى لاحقًا.',
+  watchAdPointsEarned: 'حصلت على {points} نقطة!',
 
   pointsLabel: 'النقاط',
   leaderboardTitle: 'لوحة المتصدرين',
@@ -265,4 +266,6 @@ export const ar: T = {
   leaderboardEmpty: 'لا توجد نتائج بعد — كن الأول!',
   leaderboardYou: 'أنت',
   leaderboardNotConfigured: 'ستكون لوحة المتصدرين متاحة قريبًا.',
+
+  startPlayingHint: 'ابدأ العزف',
 };

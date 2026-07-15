@@ -294,6 +294,7 @@ export interface T {
   watchAdLoading: string;
   watchAdThanks: string;
   watchAdError: string;
+  watchAdPointsEarned: string; // "{points}" placeholder
 
   // points + leaderboard
   pointsLabel: string;
@@ -304,4 +305,7 @@ export interface T {
   leaderboardEmpty: string;
   leaderboardYou: string;
   leaderboardNotConfigured: string;
+
+  // practice start hint
+  startPlayingHint: string;
 }

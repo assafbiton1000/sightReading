@@ -256,6 +256,7 @@ export const en: T = {
   watchAdLoading: 'Loading ad...',
   watchAdThanks: 'Thank you so much for your support! 🙏',
   watchAdError: "Couldn't load an ad right now. Please try again later.",
+  watchAdPointsEarned: 'You got {points} points!',
 
   pointsLabel: 'Points',
   leaderboardTitle: 'Leaderboard',
@@ -265,4 +266,6 @@ export const en: T = {
   leaderboardEmpty: 'No scores yet — be the first!',
   leaderboardYou: 'You',
   leaderboardNotConfigured: 'The leaderboard will be available soon.',
+
+  startPlayingHint: 'Start playing',
 };

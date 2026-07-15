@@ -150,6 +150,10 @@ export default function PracticeScreen() {
   const [currentNoteIdx, setCurrentNoteIdx] = useState(-1);
   const [noteResults, setNoteResults] = useState<NoteResult[]>([]);
   const [phase, setPhase] = useState<Phase>('idle');
+  // Brief "Start playing" cue shown for the first second after Start — free-tempo
+  // practice has no count-in, so this just tells the player the app is listening now.
+  const [showStartHint, setShowStartHint] = useState(false);
+  const startHintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Refs ───────────────────────────────────────────────────────────
   const pitchRef = useRef<PitchDetectorHandle>(null);
@@ -489,11 +493,17 @@ export default function PracticeScreen() {
     updateHiddenMeasures(0);
     if (!useOnScreenKeyboard) pitchRef.current?.start();
     if (settings.metronomeEnabled) startMetronome();
+
+    setShowStartHint(true);
+    if (startHintTimerRef.current) clearTimeout(startHintTimerRef.current);
+    startHintTimerRef.current = setTimeout(() => setShowStartHint(false), 1000);
   }
 
   function handleStop() {
     if (demoTimerRef.current) { clearTimeout(demoTimerRef.current); demoTimerRef.current = null; }
     if (watchdogRef.current) { clearInterval(watchdogRef.current); watchdogRef.current = null; }
+    if (startHintTimerRef.current) { clearTimeout(startHintTimerRef.current); startHintTimerRef.current = null; }
+    setShowStartHint(false);
     stopMetronome();
     pitchRef.current?.stop();
     setPhase('idle');
@@ -581,6 +591,7 @@ export default function PracticeScreen() {
   useEffect(() => () => {
     if (demoTimerRef.current) clearTimeout(demoTimerRef.current);
     if (watchdogRef.current) clearInterval(watchdogRef.current);
+    if (startHintTimerRef.current) clearTimeout(startHintTimerRef.current);
   }, []);
 
   function handleShowScore() {
@@ -758,6 +769,16 @@ export default function PracticeScreen() {
           </TouchableOpacity>
         </View>
       )}
+
+      {/* Brief "Start playing" cue — free tempo has no count-in, so this just
+          confirms listening has begun. Fades away on its own after ~1s. */}
+      {showStartHint && (
+        <View style={styles.startHintOverlay} pointerEvents="none">
+          <View style={styles.startHintPill}>
+            <Text style={styles.startHintTxt}>{t.startPlayingHint}</Text>
+          </View>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -797,5 +818,14 @@ function makeStyles(C: ThemeColors) {
     newBtnTxt: { color: C.text, fontSize: 15, fontWeight: '600' },
     stopBtn: { backgroundColor: '#ef4444', borderRadius: 16, paddingVertical: 18, alignItems: 'center' },
     keyLabel: { textAlign: 'center', color: C.muted, fontSize: 12, marginTop: 12 },
+
+    startHintOverlay: {
+      ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', padding: 24,
+    },
+    startHintPill: {
+      backgroundColor: C.primary, borderRadius: 999, paddingHorizontal: 28, paddingVertical: 16,
+      shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 20, elevation: 10,
+    },
+    startHintTxt: { fontFamily: 'Heebo_800ExtraBold', color: '#fff', fontSize: 20 },
   });
 }

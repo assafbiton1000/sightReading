@@ -7,6 +7,12 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/2422c0a7-6818-4a29-8510-40db3553c17c"
+    },
     "ios": {
       "bundleIdentifier": "com.freepacepiano.app",
       "supportsTablet": true,

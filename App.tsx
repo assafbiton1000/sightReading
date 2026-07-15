@@ -28,6 +28,8 @@ import AboutScreen from './src/screens/AboutScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import AuthScreen from './src/screens/AuthScreen';
 import ResetPasswordScreen from './src/screens/ResetPasswordScreen';
+import SupportScreen from './src/screens/SupportScreen';
+import mobileAds from 'react-native-google-mobile-ads';
 import { LangProvider, useLang } from './src/context/LangContext';
 import { SettingsProvider, useSettings } from './src/context/SettingsContext';
 import { HistoryProvider } from './src/context/HistoryContext';
@@ -77,6 +79,8 @@ function AppContent() {
     if (navReady && passwordRecovery) navigationRef.navigate('ResetPassword');
   }, [navReady, passwordRecovery]);
 
+  useEffect(() => { mobileAds().initialize(); }, []);
+
   return (
     <NavigationContainer ref={navigationRef} onReady={() => setNavReady(true)} theme={navTheme}>
       <StatusBar style={settings.darkMode ? 'light' : 'dark'} />
@@ -92,6 +96,7 @@ function AppContent() {
         <Stack.Screen name="Statistics" component={StatisticsScreen} />
         <Stack.Screen name="Help" component={HelpScreen} />
         <Stack.Screen name="About" component={AboutScreen} />
+        <Stack.Screen name="Support" component={SupportScreen} />
         <Stack.Screen name="Profile" component={ProfileScreen} />
         <Stack.Screen name="Auth" component={AuthScreen} />
         <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />

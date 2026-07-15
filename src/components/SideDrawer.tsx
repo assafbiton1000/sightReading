@@ -51,7 +51,7 @@ export default function SideDrawer({ visible, onClose }: { visible: boolean; onC
 
   if (!mounted) return null;
 
-  function go(screen: 'Home' | 'Learning' | 'Settings' | 'Statistics' | 'Help' | 'About' | 'Profile') {
+  function go(screen: 'Home' | 'Learning' | 'Settings' | 'Statistics' | 'Help' | 'About' | 'Support' | 'Profile') {
     onClose();
     navigation.navigate(screen);
   }
@@ -64,6 +64,7 @@ export default function SideDrawer({ visible, onClose }: { visible: boolean; onC
     { key: 'learning', label: t.drawerLearning,       icon: 'book-open',     onPress: () => go('Learning') },
     { key: 'help',     label: t.drawerHelp,           icon: 'help-circle',   onPress: () => go('Help') },
     { key: 'about',    label: t.drawerAbout,          icon: 'info',          onPress: () => go('About') },
+    { key: 'support',  label: t.drawerSupport,        icon: 'heart',         onPress: () => go('Support') },
   ];
 
   const bottomItems: DrawerItem[] = [

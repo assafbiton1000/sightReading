@@ -130,6 +130,7 @@ export interface T {
   drawerLearning: string;
   drawerHelp: string;
   drawerAbout: string;
+  drawerSupport: string;
   drawerProfile: string;
   drawerLogout: string;
 
@@ -280,4 +281,16 @@ export interface T {
   badgeDevDesc: string;
   badgePatronDesc: string;
   badgeLoverDesc: string;
+
+  // support screen
+  supportTitle: string;
+  supportIntro: string;
+  bmcLabel: string;
+  bmcDesc: string;
+  bmcComingSoon: string;
+  watchAdLabel: string;
+  watchAdDesc: string;
+  watchAdLoading: string;
+  watchAdThanks: string;
+  watchAdError: string;
 }

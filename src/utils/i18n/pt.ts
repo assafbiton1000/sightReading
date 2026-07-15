@@ -100,6 +100,7 @@ export const pt: T = {
   drawerLearning: 'Aprendizagem',
   drawerHelp: 'Ajuda e suporte',
   drawerAbout: 'Sobre',
+  drawerSupport: 'Apoie-me',
   drawerProfile: 'Perfil',
   drawerLogout: 'Sair',
 
@@ -243,4 +244,15 @@ export const pt: T = {
   badgeDevDesc: 'Desenvolvedores do app — quem escreveu o código',
   badgePatronDesc: 'Apoiadores e doadores do projeto',
   badgeLoverDesc: 'Usuários da comunidade — amantes da música',
+
+  supportTitle: 'Apoie-me',
+  supportIntro: 'O aplicativo é gratuito e continuará sendo. Se ele está te ajudando, aqui estão duas pequenas formas de apoiar o desenvolvimento futuro.',
+  bmcLabel: 'Compre-me um café',
+  bmcDesc: 'Uma doação única ou recorrente via Buy Me a Coffee',
+  bmcComingSoon: 'Em breve',
+  watchAdLabel: 'Assistir a um anúncio para apoiar',
+  watchAdDesc: 'Não custa nada — apenas alguns segundos do seu tempo',
+  watchAdLoading: 'Carregando anúncio...',
+  watchAdThanks: 'Muito obrigado pelo seu apoio! 🙏',
+  watchAdError: 'Não foi possível carregar um anúncio agora. Tente novamente mais tarde.',
 };

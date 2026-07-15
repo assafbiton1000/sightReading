@@ -100,6 +100,7 @@ export const en: T = {
   drawerLearning: 'Learning',
   drawerHelp: 'Help & Support',
   drawerAbout: 'About',
+  drawerSupport: 'Support Me',
   drawerProfile: 'Profile',
   drawerLogout: 'Log Out',
 
@@ -243,4 +244,15 @@ export const en: T = {
   badgeDevDesc: 'App developers — the people who wrote the code',
   badgePatronDesc: 'Project supporters and donors',
   badgeLoverDesc: 'Community users — music lovers',
+
+  supportTitle: 'Support Me',
+  supportIntro: "The app is free and will stay that way. If it's helping you, here are two small ways to support future development.",
+  bmcLabel: 'Buy Me a Coffee',
+  bmcDesc: 'A one-time or recurring donation via Buy Me a Coffee',
+  bmcComingSoon: 'Coming soon',
+  watchAdLabel: 'Watch an ad to support',
+  watchAdDesc: 'Costs nothing — just a few seconds of your time',
+  watchAdLoading: 'Loading ad...',
+  watchAdThanks: 'Thank you so much for your support! 🙏',
+  watchAdError: "Couldn't load an ad right now. Please try again later.",
 };

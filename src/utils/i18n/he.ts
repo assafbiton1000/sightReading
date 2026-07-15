@@ -100,6 +100,7 @@ export const he: T = {
   drawerLearning: 'למידה',
   drawerHelp: 'עזרה ותמיכה',
   drawerAbout: 'אודות',
+  drawerSupport: 'תמכו בי',
   drawerProfile: 'פרופיל',
   drawerLogout: 'התנתקות',
 
@@ -243,4 +244,15 @@ export const he: T = {
   badgeDevDesc: 'מפתחי האפליקציה — מי שכתבו את הקוד',
   badgePatronDesc: 'תומכים ותורמים לפרויקט',
   badgeLoverDesc: 'משתמשי הקהילה — חובבי המוזיקה',
+
+  supportTitle: 'תמכו בי',
+  supportIntro: 'האפליקציה חינמית ותישאר כזו. אם היא עוזרת לך, יש שתי דרכים קטנות לתמוך בהמשך הפיתוח.',
+  bmcLabel: 'קנו לי קפה',
+  bmcDesc: 'תרומה חד-פעמית או קבועה דרך Buy Me a Coffee',
+  bmcComingSoon: 'בקרוב',
+  watchAdLabel: 'צפו בפרסומת לתמיכה',
+  watchAdDesc: 'לא עולה כלום — רק כמה שניות מזמנכם',
+  watchAdLoading: 'טוען פרסומת...',
+  watchAdThanks: 'תודה רבה על התמיכה! 🙏',
+  watchAdError: 'לא הצלחנו לטעון פרסומת כרגע. נסו שוב מאוחר יותר.',
 };

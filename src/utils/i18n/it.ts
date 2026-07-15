@@ -100,6 +100,7 @@ export const it: T = {
   drawerLearning: 'Apprendimento',
   drawerHelp: 'Aiuto e supporto',
   drawerAbout: 'Informazioni',
+  drawerSupport: 'Sostienimi',
   drawerProfile: 'Profilo',
   drawerLogout: 'Esci',
 
@@ -243,4 +244,15 @@ export const it: T = {
   badgeDevDesc: "Sviluppatori dell'app — chi ha scritto il codice",
   badgePatronDesc: 'Sostenitori e donatori del progetto',
   badgeLoverDesc: 'Utenti della community — amanti della musica',
+
+  supportTitle: 'Sostienimi',
+  supportIntro: "L'app è gratuita e lo rimarrà. Se ti sta aiutando, ecco due piccoli modi per sostenere lo sviluppo futuro.",
+  bmcLabel: 'Offrimi un caffè',
+  bmcDesc: 'Una donazione una tantum o ricorrente tramite Buy Me a Coffee',
+  bmcComingSoon: 'Prossimamente',
+  watchAdLabel: 'Guarda una pubblicità per sostenere',
+  watchAdDesc: 'Non costa nulla — solo pochi secondi del tuo tempo',
+  watchAdLoading: 'Caricamento pubblicità...',
+  watchAdThanks: 'Grazie mille per il tuo sostegno! 🙏',
+  watchAdError: 'Impossibile caricare una pubblicità ora. Riprova più tardi.',
 };

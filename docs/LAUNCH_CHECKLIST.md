@@ -1,7 +1,28 @@
-# רשימת משימות להשקה — Supabase + Google Play
+# רשימת משימות להשקה — Supabase + Google Play + AdMob
 
 כל השלבים כאן דורשים חשבונות/פעולות חיצוניות (Supabase, Google Play Console,
-Google Cloud) ולא ניתנים לביצוע אוטומטי דרך הקוד. הרשימה מסודרת לפי סדר עדיפות.
+Google Cloud, AdMob) ולא ניתנים לביצוע אוטומטי דרך הקוד. הרשימה מסודרת לפי סדר עדיפות.
+
+---
+
+## חלק ג׳ — AdMob (מסך "Support Me" — פרסומת תמיכה מרצון)
+
+כרגע המסך משתמש במזהי TEST הרשמיים של Google (`app.json` + `TestIds.REWARDED`
+ב-`SupportScreen.tsx`) — מציגים פרסומות אמיתיות אבל לא מייצרים הכנסה. לפני
+הפצה בפועל:
+
+1. גלוש ל-<https://admob.google.com> → הרשמה/כניסה עם חשבון Google.
+2. **Apps → Add app** → Android → תבחר אם האפליקציה כבר בחנות או לא (עדיין לא).
+3. תמלא את פרטי האפליקציה → תקבל **App ID** (בפורמט `ca-app-pub-XXXX~YYYY`).
+4. באותו אפליקציה: **Ad units → Add ad unit → Rewarded** → תקבל **Ad unit ID**
+   (בפורמט `ca-app-pub-XXXX/ZZZZ`, שונה מה-App ID).
+5. עדכן שני מקומות בקוד:
+   - `app.json` → `plugins → react-native-google-mobile-ads → androidAppId`
+     (והחלף גם `iosAppId` אם תפרסם ל-iOS)
+   - `src/constants/support.ts` → `REWARDED_AD_UNIT_ID`
+6. שלח לי את שני הערכים החדשים ואני אעדכן את הקבצים.
+7. **בילד חדש נדרש** (מודול native) — `npx eas-cli build --profile preview --platform android`
+   כדי לבדוק בפועל שהמזהים האמיתיים עובדים, לפני שמכניסים ל-production.
 
 ---
 

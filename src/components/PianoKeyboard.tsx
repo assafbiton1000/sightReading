@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
-import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, Pressable, ScrollView, StyleSheet, PanResponder } from 'react-native';
 import { midiToFreq } from '../utils/musicTheory';
 import { useTheme, useIsDark } from '../utils/theme';
 
@@ -8,6 +8,17 @@ import { useTheme, useIsDark } from '../utils/theme';
 // the parent can feed taps straight into the practice engine with no ring/repeat
 // disambiguation at all. Black keys are included even though exercises only
 // generate naturals: hitting one is a real, honest wrong note.
+//
+// Two hard-won rules of this component:
+// 1. The whole keyboard is forced LTR. In the app's RTL languages (Hebrew,
+//    Arabic) React Native mirrors rows and swaps absolute left/right, which
+//    scrambled the keys against their labels and put black keys over the
+//    wrong whites — a piano's low-notes-left order is universal, not textual.
+// 2. The keys themselves never scroll. A drag that starts on a key used to
+//    fire that key's note on touch-down (an instrument must respond on press),
+//    which in Practice consumed the current note as "wrong". Scrolling happens
+//    only on the dedicated drag strip above the keys; tapping the strip's ends
+//    jumps a whole octave.
 
 interface PianoKey {
   /** VexFlow-style name, e.g. 'c/4' or 'c#/4' — same naming the exercises use */
@@ -68,11 +79,44 @@ function PianoKeyboard({ onKeyPress, initialNote = 'c/4' }: Props) {
   const scrollRef = useRef<ScrollView>(null);
   const [pressedKeys, setPressedKeys] = useState<Set<string>>(new Set());
 
+  // ── Drag-strip scrolling (the ScrollView itself has scrollEnabled=false) ──
+  const contentW = whites.length * WHITE_W;
+  const scrollXRef = useRef(0);
+  const dragStartXRef = useRef(0);
+  const viewportWRef = useRef(0);
+  const stripWRef = useRef(0);
+
+  const clampScrollTo = useCallback((x: number, animated: boolean) => {
+    const maxX = Math.max(0, contentW - viewportWRef.current);
+    const clamped = Math.min(maxX, Math.max(0, x));
+    scrollXRef.current = clamped;
+    scrollRef.current?.scrollTo({ x: clamped, animated });
+  }, [contentW]);
+
+  const panResponder = useMemo(() => PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: () => true,
+    onPanResponderGrant: () => { dragStartXRef.current = scrollXRef.current; },
+    onPanResponderMove: (_, g) => {
+      // Dragging the strip drags the keyboard itself: strip left → higher keys.
+      clampScrollTo(dragStartXRef.current - g.dx, false);
+    },
+    onPanResponderRelease: (e, g) => {
+      // A tap (no real drag) on the strip's ends jumps a whole octave.
+      if (Math.abs(g.dx) < 8) {
+        const octave = 7 * WHITE_W;
+        const dir = e.nativeEvent.locationX < stripWRef.current / 2 ? -1 : 1;
+        clampScrollTo(scrollXRef.current + dir * octave, true);
+      }
+    },
+  }), [clampScrollTo]);
+
   useEffect(() => {
     const idx = whites.findIndex(w => w.note === initialNote);
     if (idx > 0) {
       // Leave a little context to the left of the target key.
       const x = Math.max(0, (idx - 3) * WHITE_W);
+      scrollXRef.current = x;
       setTimeout(() => scrollRef.current?.scrollTo({ x, animated: false }), 0);
     }
   }, []);
@@ -91,41 +135,61 @@ function PianoKeyboard({ onKeyPress, initialNote = 'c/4' }: Props) {
   const blackBg = isDark ? '#0B0C12' : '#1a1d2e';
 
   return (
-    <ScrollView
-      ref={scrollRef}
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      style={[styles.scroll, { borderColor: C.border, backgroundColor: C.card }]}
-    >
-      <View style={{ width: whites.length * WHITE_W, height: WHITE_H }}>
-        <View style={styles.whiteRow}>
-          {whites.map(k => (
+    <View style={[styles.wrapper, { borderColor: C.border, backgroundColor: C.card }]}>
+      {/* Scroll strip — the ONLY place that scrolls the keyboard. Drag to slide,
+          tap an end to jump an octave. */}
+      <View
+        {...panResponder.panHandlers}
+        onLayout={e => { stripWRef.current = e.nativeEvent.layout.width; }}
+        style={[styles.strip, { backgroundColor: isDark ? '#2a2d3d' : '#e6e8f0' }]}
+      >
+        <Text style={[styles.stripChevron, { color: C.muted }]}>◀</Text>
+        <View style={styles.stripGrip}>
+          {[0, 1, 2, 3, 4].map(i => (
+            <View key={i} style={[styles.stripDot, { backgroundColor: C.muted }]} />
+          ))}
+        </View>
+        <Text style={[styles.stripChevron, { color: C.muted }]}>▶</Text>
+      </View>
+
+      <ScrollView
+        ref={scrollRef}
+        horizontal
+        scrollEnabled={false}
+        onLayout={e => { viewportWRef.current = e.nativeEvent.layout.width; }}
+        showsHorizontalScrollIndicator={false}
+        style={styles.scroll}
+      >
+        <View style={{ width: contentW, height: WHITE_H, direction: 'ltr' }}>
+          <View style={styles.whiteRow}>
+            {whites.map(k => (
+              <Pressable
+                key={k.note}
+                onPressIn={() => press(k)}
+                onPressOut={() => release(k)}
+                style={[
+                  styles.whiteKey,
+                  { backgroundColor: pressedKeys.has(k.note) ? whitePressedBg : whiteBg, borderColor: isDark ? '#3a3d4d' : '#c9ccd6' },
+                ]}
+              >
+                {!!k.label && <Text style={styles.cLabel}>{k.label}</Text>}
+              </Pressable>
+            ))}
+          </View>
+          {blacks.map(k => (
             <Pressable
               key={k.note}
               onPressIn={() => press(k)}
               onPressOut={() => release(k)}
               style={[
-                styles.whiteKey,
-                { backgroundColor: pressedKeys.has(k.note) ? whitePressedBg : whiteBg, borderColor: isDark ? '#3a3d4d' : '#c9ccd6' },
+                styles.blackKey,
+                { left: k.left, backgroundColor: pressedKeys.has(k.note) ? C.primary : blackBg },
               ]}
-            >
-              {!!k.label && <Text style={styles.cLabel}>{k.label}</Text>}
-            </Pressable>
+            />
           ))}
         </View>
-        {blacks.map(k => (
-          <Pressable
-            key={k.note}
-            onPressIn={() => press(k)}
-            onPressOut={() => release(k)}
-            style={[
-              styles.blackKey,
-              { left: k.left, backgroundColor: pressedKeys.has(k.note) ? C.primary : blackBg },
-            ]}
-          />
-        ))}
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -134,8 +198,18 @@ function PianoKeyboard({ onKeyPress, initialNote = 'c/4' }: Props) {
 export default React.memo(PianoKeyboard);
 
 const styles = StyleSheet.create({
-  scroll: { borderWidth: 1, borderRadius: 12, flexGrow: 0 },
-  whiteRow: { flexDirection: 'row', height: WHITE_H },
+  // direction:'ltr' everywhere — a piano is low-left/high-right in every language;
+  // without this, RTL locales mirror the rows and swap the blacks' absolute lefts.
+  wrapper: { borderWidth: 1, borderRadius: 12, overflow: 'hidden', direction: 'ltr' },
+  strip: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    height: 28, paddingHorizontal: 14, direction: 'ltr',
+  },
+  stripChevron: { fontSize: 13, fontWeight: '700' },
+  stripGrip: { flexDirection: 'row', gap: 5, alignItems: 'center' },
+  stripDot: { width: 5, height: 5, borderRadius: 2.5, opacity: 0.55 },
+  scroll: { flexGrow: 0, direction: 'ltr' },
+  whiteRow: { flexDirection: 'row', height: WHITE_H, direction: 'ltr' },
   whiteKey: {
     width: WHITE_W, height: WHITE_H,
     borderWidth: 1, borderTopWidth: 0,

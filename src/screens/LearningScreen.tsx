@@ -5,8 +5,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Audio } from 'expo-av';
+import { WebView } from 'react-native-webview';
 import PitchDetectorView, { PitchDetectorHandle } from '../components/PitchDetectorView';
 import SheetMusic from '../components/SheetMusic';
+import PianoKeyboard from '../components/PianoKeyboard';
+import { timbreSettings } from '../utils/timbreSettings';
+import { buildSynthHtml } from '../utils/pianoSynthHtml';
 import { isNoteMatch } from '../utils/musicTheory';
 import { GeneratedNote } from '../utils/noteGenerator';
 import { useLang } from '../context/LangContext';
@@ -49,6 +53,13 @@ export default function LearningScreen() {
   const C = { ...theme, primary: '#8b5cf6' }; // Learning keeps its own purple accent
   const s = makeStyles(C);
 
+  // 'midi' input source = the on-screen piano keyboard; taps replace the mic
+  // (same convention as Practice).
+  const useOnScreenKeyboard = settings.audioInputSource === 'midi';
+  // Synth for the on-screen keyboard only — sounds the user's taps.
+  const synthRef = useRef<WebView>(null);
+  const synthHtml = useRef((() => { const ts = timbreSettings.get(); return buildSynthHtml(ts.brightness, ts.sustain); })()).current;
+
   const NOTE_NAME: Record<string, string> = settings.noteNaming === 'letters'
     ? { c: 'C', d: 'D', e: 'E', f: 'F', g: 'G', a: 'A', b: 'B' }
     : { c: t.noteC, d: t.noteD, e: t.noteE, f: t.noteF, g: t.noteG, a: t.noteA, b: t.noteB };
@@ -72,6 +83,7 @@ export default function LearningScreen() {
   const bgAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    if (useOnScreenKeyboard) return; // keyboard input needs no mic permission
     let cancelled = false;
     Audio.requestPermissionsAsync().then(({ granted }) => {
       if (cancelled || !granted) return;
@@ -86,7 +98,7 @@ export default function LearningScreen() {
       cancelled = true;
       pitchRef.current?.stop();
     };
-  }, []);
+  }, [useOnScreenKeyboard]);
 
   // Learning has no fixed tempo/session end like Practice or Playback, so wall-clock
   // time is the only sensible way to measure it — record elapsed time on unmount,
@@ -142,6 +154,22 @@ export default function LearningScreen() {
     }
   }, []);
 
+  // ── On-screen keyboard input ──
+  // A tap plays its sound and feeds the exact frequency into the same match
+  // logic the mic uses. A wrong key just sounds — no penalty, like mic mode
+  // ignoring wrong pitches.
+  const playSound = useCallback((freq: number) => {
+    const { brightness, sustain } = timbreSettings.get();
+    synthRef.current?.injectJavaScript(
+      `window.dispatchEvent(new MessageEvent('message',{data:${JSON.stringify(JSON.stringify({ cmd: 'play', freq, dur: 0.5, br: brightness, su: sustain }))}}));true;`
+    );
+  }, []);
+
+  const handleKeyPress = useCallback((note: string, freq: number) => {
+    playSound(freq);
+    handlePitch(freq);
+  }, [playSound, handlePitch]);
+
   const sheetNote: GeneratedNote = { keys: [currentKey], duration: 'w', clef };
 
   const bgColor = bgAnim.interpolate({
@@ -152,9 +180,18 @@ export default function LearningScreen() {
   return (
     <SafeAreaView style={s.safe}>
       <AppHeader />
-      <PitchDetectorView ref={pitchRef} onPitchDetected={handlePitch} sensitivity={settings.micSensitivity} />
+      {!useOnScreenKeyboard && (
+        <PitchDetectorView ref={pitchRef} onPitchDetected={handlePitch} sensitivity={settings.micSensitivity} />
+      )}
+      {/* Hidden: synth — sounds the on-screen keyboard taps */}
+      {useOnScreenKeyboard && (
+        <View style={s.hidden}>
+          <WebView ref={synthRef} source={{ html: synthHtml }} javaScriptEnabled originWhitelist={['*']}
+            mediaPlaybackRequiresUserAction={false} allowsInlineMediaPlayback />
+        </View>
+      )}
 
-      <ScrollView contentContainerStyle={s.container} showsVerticalScrollIndicator={false}>
+      <ScrollView style={s.scroll} contentContainerStyle={s.container} showsVerticalScrollIndicator={false}>
         <View style={s.header}>
           <TouchableOpacity onPress={() => { pitchRef.current?.stop(); navigation.goBack(); }}>
             <Text style={s.back}>{t.back}</Text>
@@ -189,7 +226,9 @@ export default function LearningScreen() {
           </View>
           <View style={[s.badge, detected ? s.badgeGreen : s.badgeBlue]}>
             <Text style={s.badgeTxt}>
-              {detected ? t.correctExclaim : micReady ? t.listeningLabel : t.waitingLabel}
+              {detected ? t.correctExclaim
+                : useOnScreenKeyboard ? t.playOnKeyboardLabel
+                : micReady ? t.listeningLabel : t.waitingLabel}
             </Text>
           </View>
         </View>
@@ -230,6 +269,16 @@ export default function LearningScreen() {
           <Text style={s.skipTxt}>{t.skipBtn}</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Fixed footer — outside the ScrollView so dragging the sheet to scroll
+          can never land on a key, and the keyboard stays visible without
+          scrolling (same pattern as Practice). Centered on the note to find. */}
+      {useOnScreenKeyboard && (
+        <View style={s.keyboardFooter}>
+          {/* key={clef} remounts the keyboard so it re-centers on the new clef's range */}
+          <PianoKeyboard key={clef} onKeyPress={handleKeyPress} initialNote={clef === 'treble' ? 'g/4' : 'c/3'} />
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -237,7 +286,10 @@ export default function LearningScreen() {
 function makeStyles(C: ThemeColors) {
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: C.bg },
+    hidden: { width: 1, height: 1, opacity: 0 },
+    scroll: { flex: 1 },
     container: { padding: 20, paddingBottom: 40 },
+    keyboardFooter: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 10, backgroundColor: C.bg, borderTopWidth: 1, borderTopColor: C.border },
     header: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 20 },
     back: { fontSize: 16, color: C.primary, fontWeight: '600' },
     title: { fontSize: 18, fontWeight: '800', color: C.text },

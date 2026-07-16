@@ -15,7 +15,7 @@ import { DURATION_BEATS, NOTE_FREQUENCIES } from '../constants/notes';
 import { useMetronome } from '../utils/useMetronome';
 import { timbreSettings } from '../utils/timbreSettings';
 import { buildSynthHtml } from '../utils/pianoSynthHtml';
-import SheetMusic, { NotePosition } from '../components/SheetMusic';
+import SheetMusic, { NotePosition, SheetMusicHandle } from '../components/SheetMusic';
 import { getCursorMetrics } from '../components/PlaybackCursor';
 import PianoKeyboard from '../components/PianoKeyboard';
 import PitchDetectorView, { PitchDetectorHandle } from '../components/PitchDetectorView';
@@ -195,22 +195,23 @@ export default function PracticeScreen() {
   // reached stays visible above the keyboard, same idea as Playback's cursor-follow. ──
   const scrollRef = useRef<ScrollView>(null);
   const sheetYRef = useRef(0);
+  const sheetRef = useRef<SheetMusicHandle>(null);
   const notePositionsRef = useRef<NotePosition[]>([]);
   const lastAutoScrollLineRef = useRef(-1);
   const handleNotePositions = useCallback((positions: NotePosition[]) => {
     notePositionsRef.current = positions;
+    // The WebView just (re)rendered, wiping its arrow — re-assert the current one.
+    if (phaseRef.current === 'playing' && currentIdxRef.current >= 0) {
+      sheetRef.current?.setArrow(currentIdxRef.current);
+    }
   }, []);
 
-  // ── Floating arrow above the staff, pointing down at the current note —
-  // playing only, so it never distracts during idle/review/demo. ──
-  const [arrowX, setArrowX] = useState(0);
-  const [arrowLineIdx, setArrowLineIdx] = useState(0);
+  // ── Arrow above the staff, pointing down at the current note — playing only,
+  // so it never distracts during idle/review/demo. Drawn inside the WebView
+  // (see SheetMusicHandle) — a native overlay here used to vanish behind the
+  // sheet card's Android elevation. ──
   useEffect(() => {
-    if (phase !== 'playing' || currentNoteIdx < 0) return;
-    const pos = notePositionsRef.current.find(p => p.idx === currentNoteIdx);
-    if (!pos) return;
-    setArrowX(pos.x);
-    setArrowLineIdx(pos.lineIdx);
+    sheetRef.current?.setArrow(phase === 'playing' && currentNoteIdx >= 0 ? currentNoteIdx : null);
   }, [currentNoteIdx, phase]);
 
   // ── Disappearing measures ─────────────────────────────────────────
@@ -667,11 +668,12 @@ export default function PracticeScreen() {
         {/* Sheet music — deliberately no cursor or current-note highlight while
             PRACTICING (unguided, free tempo). The blue highlight appears only
             during the correct-performance replay, where guidance is the point.
-            The floating arrow (playing only) just orients the player to where
+            The in-sheet arrow (playing only) just orients the player to where
             they are, without dictating timing. */}
         {notes.length > 0 && (
           <View onLayout={e => { sheetYRef.current = e.nativeEvent.layout.y; }}>
             <SheetMusic
+              ref={sheetRef}
               notes={notes}
               highlightedIndices={phase === 'demo' && currentNoteIdx >= 0 ? slotMembers(currentNoteIdx) : NO_INDICES}
               hiddenIndices={hiddenIndices}
@@ -683,21 +685,6 @@ export default function PracticeScreen() {
               staffScale={settings.staffSize}
               darkMode={isDark}
             />
-            {phase === 'playing' && (() => {
-              const isGrand = notes.some(n => n.clef === 'treble') && notes.some(n => n.clef === 'bass');
-              const { systemH, topOffset } = getCursorMetrics(isGrand, settings.staffSize);
-              return (
-                <Text
-                  pointerEvents="none"
-                  style={[
-                    styles.noteArrow,
-                    { top: arrowLineIdx * systemH + topOffset - 26, transform: [{ translateX: arrowX }] },
-                  ]}
-                >
-                  ▼
-                </Text>
-              );
-            })()}
           </View>
         )}
 
@@ -802,7 +789,6 @@ function makeStyles(C: ThemeColors) {
     back: { fontSize: 16, color: C.primary, fontWeight: '600' },
     levelLabel: { fontSize: 13, color: C.muted, fontWeight: '600' },
     controls: { marginBottom: 16 },
-    noteArrow: { position: 'absolute', left: -9, fontSize: 20, color: C.primary },
     scoreRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
     scoreChip: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1.5, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6, backgroundColor: C.card },
     scoreCount: { fontSize: 22, fontWeight: '800' },

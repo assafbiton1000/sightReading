@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef, forwardRef, useImperativeHandle } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import { GeneratedNote } from '../utils/noteGenerator';
@@ -6,6 +6,12 @@ import { VEXFLOW_BASE64 } from '../constants/vexflowBundle';
 import { DURATION_BEATS } from '../constants/notes';
 
 export type NotePosition = { idx: number; x: number; lineIdx: number };
+
+export interface SheetMusicHandle {
+  /** Show a ▼ arrow above note `idx`, or hide it with null. Drawn INSIDE the
+   * WebView so no native z-order/elevation/clipping can ever hide it. */
+  setArrow: (idx: number | null) => void;
+}
 
 // Per-system vertical layout — the ONE source of truth for how tall a line of
 // notation is. Anything that needs to position something relative to a specific
@@ -44,7 +50,7 @@ function buildHtml(
   notes: GeneratedNote[],
   highlightedIndices: number[],
   hiddenIndices: number[],
-  noteResults: ('correct' | 'wrong' | 'rhythm' | 'pending')[],
+  noteResults: ('correct' | 'wrong' | 'rhythm' | 'skipped' | 'pending')[],
   keySignature: string,
   timeSignature: [number, number],
   colorfulNotes: boolean,
@@ -237,6 +243,30 @@ try{
 
   try{window.ReactNativeWebView.postMessage(JSON.stringify({type:'positions',data:allPos}));}catch(_){}
 
+  // ── Current-note arrow ──
+  // A ▼ marker the app can point at any note via window.__setArrow(idx).
+  // Lives inside the WebView on purpose: a React Native overlay outside the
+  // sheet card gets hidden behind the card's Android elevation shadow — in
+  // here nothing can cover or clip it.
+  var arrowEl=document.createElement('div');
+  arrowEl.textContent='\\u25BC';
+  arrowEl.style.cssText='position:absolute;display:none;pointer-events:none;z-index:10;'+
+    'font-size:'+(22*SCALE)+'px;line-height:1;color:#1E90FF;'+
+    'transform:translateX(-50%);transition:left 120ms ease,top 120ms ease;'+
+    'text-shadow:0 1px 3px rgba(0,0,0,0.35);';
+  document.body.appendChild(arrowEl);
+  window.__setArrow=function(idx){
+    if(idx==null||idx<0){arrowEl.style.display='none';return;}
+    var p=null;
+    for(var i=0;i<allPos.length;i++){if(allPos[i].idx===idx){p=allPos[i];break;}}
+    if(!p){arrowEl.style.display='none';return;}
+    // Center on the notehead (getAbsoluteX is its left edge, ~10px wide pre-scale);
+    // +4 = body padding. Vertically: at the top of the note's system band.
+    arrowEl.style.left=(p.x+5*SCALE+4)+'px';
+    arrowEl.style.top=((p.lineIdx*SYSTEM_H+2)*SCALE+4)+'px';
+    arrowEl.style.display='block';
+  };
+
 }catch(e){document.getElementById("error").textContent="Error: "+e.message;}
 })();
 </script>
@@ -246,10 +276,20 @@ try{
 
 const NO_HIDDEN: number[] = []; // stable default — an inline [] would rebuild the html memo every render
 
-export default function SheetMusic({
+export default forwardRef<SheetMusicHandle, Props>(function SheetMusic({
   notes, highlightedIndices, hiddenIndices = NO_HIDDEN, noteResults, keySignature, timeSignature, onNotePositions,
   colorfulNotes = false, staffScale = 1, darkMode = false,
-}: Props) {
+}: Props, ref) {
+  const webviewRef = useRef<WebView>(null);
+
+  useImperativeHandle(ref, () => ({
+    setArrow: (idx: number | null) => {
+      webviewRef.current?.injectJavaScript(
+        `window.__setArrow&&window.__setArrow(${idx === null ? 'null' : idx});true;`
+      );
+    },
+  }), []);
+
   const html = useMemo(
     () => buildHtml(notes, highlightedIndices, hiddenIndices, noteResults, keySignature, timeSignature, colorfulNotes, staffScale, darkMode),
     [notes, highlightedIndices, hiddenIndices, noteResults, keySignature, timeSignature, colorfulNotes, staffScale, darkMode]
@@ -286,6 +326,7 @@ export default function SheetMusic({
   return (
     <View style={[styles.container, { height, backgroundColor: bg }]}>
       <WebView
+        ref={webviewRef}
         source={{ html }}
         style={[styles.webview, { backgroundColor: bg }]}
         onMessage={handleMessage}
@@ -297,7 +338,7 @@ export default function SheetMusic({
       />
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {

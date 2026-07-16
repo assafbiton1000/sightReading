@@ -35,6 +35,7 @@ import { LangProvider, useLang } from './src/context/LangContext';
 import { SettingsProvider, useSettings } from './src/context/SettingsContext';
 import { HistoryProvider, useHistory } from './src/context/HistoryContext';
 import { ProfileProvider, useProfile } from './src/context/ProfileContext';
+import LeaderboardSync from './src/components/LeaderboardSync';
 import { LIGHT_THEME, DARK_THEME } from './src/utils/theme';
 import { syncDailyReminder } from './src/utils/dailyReminder';
 import { pushLeaderboardScore } from './src/utils/leaderboard';
@@ -140,6 +141,7 @@ export default function App() {
     <HistoryProvider>
     <ProfileProvider>
     <LangProvider>
+      <LeaderboardSync />
       <AppContent />
     </LangProvider>
     </ProfileProvider>

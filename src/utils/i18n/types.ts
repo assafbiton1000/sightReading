@@ -93,6 +93,7 @@ export interface T {
   streakLabel: string;
   listeningLabel: string;
   waitingLabel: string;
+  playOnKeyboardLabel: string;
   correctExclaim: string;
   learningHint: string;
   skipBtn: string;
@@ -286,9 +287,6 @@ export interface T {
   // support screen
   supportTitle: string;
   supportIntro: string;
-  bmcLabel: string;
-  bmcDesc: string;
-  bmcComingSoon: string;
   watchAdLabel: string;
   watchAdDesc: string;
   watchAdLoading: string;

@@ -64,7 +64,7 @@ export default function SideDrawer({ visible, onClose }: { visible: boolean; onC
     { key: 'learning', label: t.drawerLearning,       icon: 'book-open',     onPress: () => go('Learning') },
     { key: 'help',     label: t.drawerHelp,           icon: 'help-circle',   onPress: () => go('Help') },
     { key: 'about',    label: t.drawerAbout,          icon: 'info',          onPress: () => go('About') },
-    { key: 'support',  label: t.drawerSupport,        icon: 'heart',         onPress: () => go('Support') },
+    { key: 'support',  label: t.drawerSupport,        icon: 'gift',          onPress: () => go('Support') },
     { key: 'leaderboard', label: t.drawerLeaderboard, icon: 'award',         onPress: () => go('Leaderboard') },
   ];
 

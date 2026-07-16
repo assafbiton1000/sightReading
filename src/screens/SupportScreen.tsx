@@ -3,15 +3,18 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import * as WebBrowser from 'expo-web-browser';
 import { useRewardedAd, TestIds } from 'react-native-google-mobile-ads';
 import { useLang } from '../context/LangContext';
 import { useHistory, POINTS_PER_AD } from '../context/HistoryContext';
 import { useTheme, ThemeColors } from '../utils/theme';
-import { BUY_ME_A_COFFEE_URL, REWARDED_AD_UNIT_ID } from '../constants/support';
+import { REWARDED_AD_UNIT_ID } from '../constants/support';
 import AppHeader from '../components/AppHeader';
 
-type FeatherIcon = keyof typeof Feather.glyphMap;
+// "Bonus Points" screen — a standard rewarded-ads flow: the user opts in to
+// watch an ad and earns leaderboard points. Deliberately NO donation links or
+// "support the developer" framing: external payment links (e.g. Buy Me a
+// Coffee) violate Google Play's Payments policy for apps distributed there.
+
 type Styles = ReturnType<typeof makeStyles>;
 
 export default function SupportScreen() {
@@ -57,10 +60,6 @@ export default function SupportScreen() {
     }
   }
 
-  function handleBmcPress() {
-    if (BUY_ME_A_COFFEE_URL) WebBrowser.openBrowserAsync(BUY_ME_A_COFFEE_URL);
-  }
-
   return (
     <SafeAreaView style={s.safe}>
       <AppHeader />
@@ -74,36 +73,15 @@ export default function SupportScreen() {
 
         <Text style={s.intro}>{t.supportIntro}</Text>
 
-        {/* Buy Me a Coffee */}
-        <TouchableOpacity
-          style={[s.card, !BUY_ME_A_COFFEE_URL && s.cardDisabled]}
-          onPress={handleBmcPress}
-          disabled={!BUY_ME_A_COFFEE_URL}
-          activeOpacity={0.85}
-        >
-          <View style={[s.iconWrap, { backgroundColor: 'rgba(255,145,0,0.12)' }]}>
-            <Feather name="coffee" size={22} color="#ff9100" />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={s.cardTitle}>{t.bmcLabel}</Text>
-            <Text style={s.cardDesc}>{t.bmcDesc}</Text>
-          </View>
-          {!BUY_ME_A_COFFEE_URL && (
-            <View style={s.badge}>
-              <Text style={s.badgeTxt}>{t.bmcComingSoon}</Text>
-            </View>
-          )}
-        </TouchableOpacity>
-
-        {/* Watch an ad */}
+        {/* Watch an ad → earn points */}
         <TouchableOpacity
           style={s.card}
           onPress={handleWatchAd}
           disabled={rewarded.isShowing}
           activeOpacity={0.85}
         >
-          <View style={[s.iconWrap, { backgroundColor: 'rgba(236,72,153,0.12)' }]}>
-            <Feather name="heart" size={22} color="#ec4899" />
+          <View style={[s.iconWrap, { backgroundColor: 'rgba(245,158,11,0.14)' }]}>
+            <Feather name="gift" size={22} color="#f59e0b" />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={s.cardTitle}>{t.watchAdLabel}</Text>
@@ -114,7 +92,7 @@ export default function SupportScreen() {
 
         {thanked && (
           <View style={s.thanksBox}>
-            <Feather name="heart" size={18} color="#ec4899" />
+            <Feather name="star" size={18} color="#f59e0b" />
             <View style={{ flex: 1 }}>
               <Text style={s.thanksTxt}>{t.watchAdThanks}</Text>
               <Text style={s.pointsEarnedTxt}>{t.watchAdPointsEarned.replace('{points}', String(POINTS_PER_AD))}</Text>
@@ -144,17 +122,13 @@ function makeStyles(C: ThemeColors) {
       borderRadius: 20, padding: 18, gap: 16, marginBottom: 14,
       shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.1, shadowRadius: 16, elevation: 3,
     },
-    cardDisabled: { opacity: 0.6 },
     iconWrap: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
     cardTitle: { fontFamily: 'Heebo_700Bold', fontSize: 15, color: C.text },
     cardDesc: { fontFamily: 'Heebo_400Regular', fontSize: 12.5, color: C.muted, marginTop: 3 },
 
-    badge: { backgroundColor: C.chipBg, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 },
-    badgeTxt: { fontFamily: 'Heebo_600SemiBold', fontSize: 11, color: C.muted },
-
     thanksBox: {
       flexDirection: 'row', alignItems: 'center', gap: 10,
-      backgroundColor: 'rgba(236,72,153,0.12)', borderRadius: 14, padding: 14, marginTop: 4,
+      backgroundColor: 'rgba(245,158,11,0.14)', borderRadius: 14, padding: 14, marginTop: 4,
     },
     thanksTxt: { fontFamily: 'Heebo_700Bold', fontSize: 14, color: C.text },
     pointsEarnedTxt: { fontFamily: 'Heebo_600SemiBold', fontSize: 12.5, color: '#f59e0b', marginTop: 2 },

@@ -20,7 +20,9 @@ export async function pushLeaderboardScore(userId: string, displayName: string, 
   } catch (_) {}
 }
 
-export async function fetchLeaderboard(limit = 50): Promise<LeaderboardEntry[]> {
+// Top 100 — every signed-in user is ranked by points (LeaderboardSync pushes
+// each user's total automatically).
+export async function fetchLeaderboard(limit = 100): Promise<LeaderboardEntry[]> {
   if (!isSupabaseConfigured) return [];
   const { data, error } = await supabase
     .from(TABLE)

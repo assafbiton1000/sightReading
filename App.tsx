@@ -33,12 +33,10 @@ import LeaderboardScreen from './src/screens/LeaderboardScreen';
 import mobileAds from 'react-native-google-mobile-ads';
 import { LangProvider, useLang } from './src/context/LangContext';
 import { SettingsProvider, useSettings } from './src/context/SettingsContext';
-import { HistoryProvider, useHistory } from './src/context/HistoryContext';
+import { HistoryProvider } from './src/context/HistoryContext';
 import { ProfileProvider, useProfile } from './src/context/ProfileContext';
-import LeaderboardSync from './src/components/LeaderboardSync';
 import { LIGHT_THEME, DARK_THEME } from './src/utils/theme';
 import { syncDailyReminder } from './src/utils/dailyReminder';
-import { pushLeaderboardScore } from './src/utils/leaderboard';
 
 const Stack = createStackNavigator<RootStackParamList>();
 
@@ -47,8 +45,7 @@ const Stack = createStackNavigator<RootStackParamList>();
 function AppContent() {
   const { settings, loaded } = useSettings();
   const { t, lang } = useLang();
-  const { passwordRecovery, profile } = useProfile();
-  const { points } = useHistory();
+  const { passwordRecovery } = useProfile();
   const navigationRef = useNavigationContainerRef<RootStackParamList>();
   const [navReady, setNavReady] = useState(false);
   const theme = settings.darkMode ? DARK_THEME : LIGHT_THEME;
@@ -84,14 +81,6 @@ function AppContent() {
   }, [navReady, passwordRecovery]);
 
   useEffect(() => { mobileAds().initialize(); }, []);
-
-  // Pushes the local point total to the leaderboard whenever it changes, but
-  // only once signed in — signed-out users keep earning points locally, they
-  // just don't appear on the shared table until they sign in.
-  useEffect(() => {
-    if (!profile) return;
-    pushLeaderboardScore(profile.id, profile.name, points);
-  }, [profile, points]);
 
   return (
     <NavigationContainer ref={navigationRef} onReady={() => setNavReady(true)} theme={navTheme}>
@@ -138,14 +127,13 @@ export default function App() {
   return (
     <SafeAreaProvider>
     <SettingsProvider>
-    <HistoryProvider>
     <ProfileProvider>
+    <HistoryProvider>
     <LangProvider>
-      <LeaderboardSync />
       <AppContent />
     </LangProvider>
-    </ProfileProvider>
     </HistoryProvider>
+    </ProfileProvider>
     </SettingsProvider>
     </SafeAreaProvider>
   );

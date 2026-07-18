@@ -100,6 +100,44 @@ create policy "Users can update only their own score"
 עד שהטבלה תיווצר, הנקודות עדיין נשמרות תקין **על המכשיר** לכל משתמש (לא
 הולך לאיבוד) — רק מסך ה-Leaderboard עצמו יראה "בקרוב" במקום טבלה.
 
+### א.8 טבלת `user_stats` (גיבוי נקודות + סטטיסטיקה בענן)
+בלי הטבלה הזו הנקודות וההיסטוריה נשמרות **רק על המכשיר** — התקנה מחדש / מעבר
+למכשיר חדש מאפסים אותן. הטבלה שומרת לכל משתמש **מחובר** עותק פרטי (RLS: רק
+הבעלים קורא/כותב), וב-`HistoryContext` האפליקציה מושכת אותו בהתחברות, ממזגת
+עם הנתונים המקומיים (איחוד סשנים + הערך הגבוה של הנקודות — לעולם לא דורסת כלפי
+מטה), וכותבת חזרה בכל שינוי. הרץ **פעם אחת** ב-**SQL Editor**:
+
+```sql
+create table public.user_stats (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  points numeric not null default 0,
+  records jsonb not null default '[]'::jsonb,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.user_stats enable row level security;
+
+create policy "Users can read only their own stats"
+  on public.user_stats for select
+  to authenticated
+  using (auth.uid() = user_id);
+
+create policy "Users can insert only their own stats"
+  on public.user_stats for insert
+  to authenticated
+  with check (auth.uid() = user_id);
+
+create policy "Users can update only their own stats"
+  on public.user_stats for update
+  to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+```
+
+עד שהטבלה תיווצר, האפליקציה עובדת רגיל — הכתיבה לשרת פשוט נכשלת בשקט
+והנתונים נשמרים מקומית כמו קודם. חשוב: המיזוג רץ רק כשמשתמש **מחובר**, אז כדי
+שנתונים ישרדו התקנה מחדש המשתמש חייב להיות מחובר לחשבון (לא אורח).
+
 ---
 
 ## חלק ב׳ — הגשה ל-Google Play (מה שעוד חסר)

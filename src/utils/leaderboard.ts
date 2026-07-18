@@ -20,8 +20,8 @@ export async function pushLeaderboardScore(userId: string, displayName: string, 
   } catch (_) {}
 }
 
-// Top 100 — every signed-in user is ranked by points (LeaderboardSync pushes
-// each user's total automatically).
+// Top 100 — every signed-in user is ranked by points (HistoryContext mirrors
+// each user's total to the board automatically).
 export async function fetchLeaderboard(limit = 100): Promise<LeaderboardEntry[]> {
   if (!isSupabaseConfigured) return [];
   const { data, error } = await supabase

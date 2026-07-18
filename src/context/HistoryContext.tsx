@@ -1,5 +1,8 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useProfile } from './ProfileContext';
+import { fetchUserStats, pushUserStats } from '../utils/userStats';
+import { pushLeaderboardScore } from '../utils/leaderboard';
 
 export type SessionMode = 'practice' | 'playback' | 'learning';
 
@@ -38,6 +41,10 @@ const RETENTION_DAYS = 90;
 const POINTS_PER_MINUTE = 1;
 export const POINTS_PER_AD = 2;
 
+// Debounce for mirroring local changes up to the server — coalesces a practice
+// session's point trickle (and its record write) into a single upload.
+const SERVER_SYNC_DELAY = 1500;
+
 function toDayStr(d: Date): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -59,12 +66,38 @@ function computeStreak(dayStrs: Set<string>): number {
   return dayStrs.size;
 }
 
+function isSessionRecord(r: unknown): r is SessionRecord {
+  return !!r && typeof r === 'object' && typeof (r as SessionRecord).timestamp === 'number';
+}
+
+// Unions local and server records by timestamp (each session has a unique ms
+// timestamp), keeping the local copy on a tie, then re-applies the 90-day
+// retention window so the merged set can't grow unbounded on the server.
+function mergeRecords(local: SessionRecord[], server: unknown[]): SessionRecord[] {
+  const byTs = new Map<number, SessionRecord>();
+  for (const r of server) if (isSessionRecord(r)) byTs.set(r.timestamp, r);
+  for (const r of local) byTs.set(r.timestamp, r); // local wins ties
+  const cutoff = toDayStr(addDays(new Date(), -RETENTION_DAYS));
+  return [...byTs.values()].filter(r => r.date >= cutoff).sort((a, b) => a.timestamp - b.timestamp);
+}
+
 const Ctx = createContext<HistoryCtx | null>(null);
 
 export function HistoryProvider({ children }: { children: React.ReactNode }) {
+  const { profile } = useProfile();
   const [records, setRecords] = useState<SessionRecord[]>([]);
   const [points, setPoints] = useState(0);
   const [loaded, setLoaded] = useState(false);
+  // The user id whose server stats we've already pulled + merged. Gates the
+  // write-through effect so it can never fire (and clobber the server) before
+  // hydration — the bug that used to zero a user's leaderboard score on reinstall.
+  const [hydratedUserId, setHydratedUserId] = useState<string | null>(null);
+
+  // Latest local state, read inside the async hydration without re-triggering it.
+  const recordsRef = useRef(records);
+  const pointsRef = useRef(points);
+  recordsRef.current = records;
+  pointsRef.current = points;
 
   useEffect(() => {
     let cancelled = false;
@@ -88,6 +121,49 @@ export function HistoryProvider({ children }: { children: React.ReactNode }) {
       .finally(() => { if (!cancelled) setLoaded(true); });
     return () => { cancelled = true; };
   }, []);
+
+  // Server hydration: on sign-in, pull the user's stored stats and merge them
+  // into local state (union of records, max of points — a reinstall starts
+  // local at 0, so the server value wins and nothing is lost). The merged
+  // result is then written back through the effect below. Runs once per user.
+  useEffect(() => {
+    if (!loaded) return;
+    const uid = profile?.id ?? null;
+    if (!uid) { setHydratedUserId(null); return; } // signed out — keep local data as-is
+    if (hydratedUserId === uid) return;
+    let cancelled = false;
+    (async () => {
+      const server = await fetchUserStats(uid);
+      if (cancelled) return;
+      const merged = mergeRecords(recordsRef.current, server?.records ?? []);
+      // Points can exceed record-minutes (rewarded ads add points with no record),
+      // so never reconstruct purely from records — take the largest of every
+      // source instead, which recovers minute-points from the merged records too.
+      const minutePoints = merged.reduce((sum, r) => sum + r.minutes * POINTS_PER_MINUTE, 0);
+      const mergedPoints = Math.max(pointsRef.current, server?.points ?? 0, minutePoints);
+      setRecords(merged);
+      setPoints(mergedPoints);
+      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(merged)).catch(() => {});
+      AsyncStorage.setItem(POINTS_STORAGE_KEY, String(mergedPoints)).catch(() => {});
+      setHydratedUserId(uid);
+    })();
+    return () => { cancelled = true; };
+  }, [loaded, profile, hydratedUserId]);
+
+  // Write-through: mirror local changes up to the server (private stats + the
+  // public leaderboard projection). Gated on hydratedUserId so it only ever
+  // runs for a user whose server data we've already merged in — this is the
+  // single writer of the leaderboard, replacing the old duplicate push effects.
+  useEffect(() => {
+    if (!profile || hydratedUserId !== profile.id) return;
+    const snapshotPoints = points;
+    const snapshotRecords = records;
+    const id = setTimeout(() => {
+      pushUserStats(profile.id, snapshotPoints, snapshotRecords);
+      pushLeaderboardScore(profile.id, profile.name, snapshotPoints);
+    }, SERVER_SYNC_DELAY);
+    return () => clearTimeout(id);
+  }, [profile, hydratedUserId, points, records]);
 
   const addPoints = useCallback((amount: number) => {
     setPoints(prev => {

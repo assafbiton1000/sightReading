@@ -295,6 +295,15 @@ export interface T {
   watchAdThanks: string;
   watchAdError: string;
   watchAdPointsEarned: string; // "{points}" placeholder
+  // support tiers (in-app purchase)
+  supportTierTitle: string;
+  supportTierIntro: string;
+  supportPatronActive: string;
+  supportSignInRequired: string;
+  supportStoreUnavailable: string;
+  supportThanksTitle: string;
+  supportThanksBody: string;
+  supportPurchaseError: string;
 
   // points + leaderboard
   pointsLabel: string;

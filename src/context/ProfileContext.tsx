@@ -39,8 +39,12 @@ interface ProfileCtx {
   configured: boolean;
   /** True only for accounts flagged is_admin in public.profiles — gates the admin screen. */
   isAdmin: boolean;
+  /** True once the user has completed a "support" purchase (profiles.is_patron) — drives the Patron badge. */
+  isPatron: boolean;
   /** The user's admin-assigned rank from public.profiles; null until loaded / when signed out. */
   rank: string | null;
+  /** Flags the signed-in user as a patron server-side after a successful support purchase. Returns success. */
+  grantPatron: () => Promise<boolean>;
   /** Set when the user arrives through a reset-password email link; App navigates to ResetPassword. */
   passwordRecovery: boolean;
   clearPasswordRecovery: () => void;
@@ -105,6 +109,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const [loaded, setLoaded] = useState(false);
   const [passwordRecovery, setPasswordRecovery] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isPatron, setIsPatron] = useState(false);
   const [rank, setRank] = useState<string | null>(null);
 
   // Restore the persisted session on launch and track every auth change after.
@@ -140,24 +145,40 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     });
   }, [url]);
 
-  // Resolve the admin flag + rank from public.profiles whenever the signed-in
-  // user changes. Read-your-own-row RLS makes this safe; any failure (signed
-  // out, table not created yet, network) falls back to non-admin / no rank.
+  // Resolve the admin/patron flags + rank from public.profiles whenever the
+  // signed-in user changes. Read-your-own-row RLS makes this safe; any failure
+  // (signed out, table not created yet, network) falls back to the defaults.
   const userId = session?.user?.id ?? null;
   useEffect(() => {
-    if (!userId || !isSupabaseConfigured) { setIsAdmin(false); setRank(null); return; }
+    if (!userId || !isSupabaseConfigured) { setIsAdmin(false); setIsPatron(false); setRank(null); return; }
     let cancelled = false;
     supabase
       .from('profiles')
-      .select('is_admin, rank')
+      .select('is_admin, is_patron, rank')
       .eq('id', userId)
       .maybeSingle()
       .then(({ data }) => {
         if (cancelled) return;
         setIsAdmin(!!data?.is_admin);
+        setIsPatron(!!data?.is_patron);
         setRank(typeof data?.rank === 'string' ? data.rank : null);
       });
     return () => { cancelled = true; };
+  }, [userId]);
+
+  // Called by the Support screen after a successful in-app purchase. The
+  // grant-patron Edge Function flips profiles.is_patron for the caller; on
+  // success we reflect it locally so the Patron badge appears immediately.
+  const grantPatron = useCallback(async (): Promise<boolean> => {
+    if (!isSupabaseConfigured || !userId) return false;
+    try {
+      const { data, error } = await supabase.functions.invoke('grant-patron', { body: {} });
+      if (error || !data?.ok) return false;
+      setIsPatron(true);
+      return true;
+    } catch {
+      return false;
+    }
   }, [userId]);
 
   const signUp = useCallback(async (name: string, email: string, password: string): Promise<SignUpResult> => {
@@ -289,7 +310,9 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         profile: profileFromSession(session),
         configured: isSupabaseConfigured,
         isAdmin,
+        isPatron,
         rank,
+        grantPatron,
         passwordRecovery,
         clearPasswordRecovery,
         signUp,

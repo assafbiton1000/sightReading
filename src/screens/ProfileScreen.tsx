@@ -10,7 +10,7 @@ import { useProfile } from '../context/ProfileContext';
 import { useHistory } from '../context/HistoryContext';
 import { useTheme, ThemeColors } from '../utils/theme';
 import { formatMinutes } from '../utils/format';
-import { badgeForEmail, BADGE_META, ALL_BADGES, UserBadge } from '../constants/badges';
+import { badgeForFlags, BADGE_META, ALL_BADGES, UserBadge } from '../constants/badges';
 import { RANK_LABEL, Rank } from '../constants/ranks';
 import AppHeader from '../components/AppHeader';
 
@@ -19,7 +19,8 @@ type Styles = ReturnType<typeof makeStyles>;
 export default function ProfileScreen() {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const { t } = useLang();
-  const { profile, rank, updateProfile, deleteAccount, logout } = useProfile();
+  const { profile, rank, isAdmin, isPatron, updateProfile, deleteAccount, logout } = useProfile();
+  const myBadge = badgeForFlags({ isAdmin, isPatron });
   const { stats } = useHistory();
   const C = useTheme();
   const s = makeStyles(C);
@@ -105,7 +106,7 @@ export default function ProfileScreen() {
               <Text style={s.heroName}>{profile.name}</Text>
               {!!profile.email && <Text style={s.heroEmail}>{profile.email}</Text>}
               {(() => {
-                const meta = BADGE_META[badgeForEmail(profile.email)];
+                const meta = BADGE_META[myBadge];
                 return (
                   <View style={[s.badgeChip, { backgroundColor: meta.bg }]}>
                     <Feather name={meta.icon} size={13} color={meta.color} />
@@ -211,7 +212,7 @@ export default function ProfileScreen() {
                 <Text style={s.cardTitle}>{t.badgeSectionTitle}</Text>
               </View>
               {(() => {
-                const mine = badgeForEmail(profile.email);
+                const mine = myBadge;
                 const descByBadge: Record<UserBadge, string> = {
                   developer: t.badgeDevDesc,
                   patron: t.badgePatronDesc,

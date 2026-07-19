@@ -4,16 +4,12 @@
 
 export type UserBadge = 'developer' | 'patron' | 'general';
 
-// With no server, membership is derived from the sign-in email. Add donor
-// emails to PATRON_EMAILS as they come in; a future backend replaces this
-// lookup with real account roles.
-export const DEVELOPER_EMAILS = ['assafbiton@gmail.com'];
-export const PATRON_EMAILS: string[] = [];
-
-export function badgeForEmail(email: string): UserBadge {
-  const normalized = email.trim().toLowerCase();
-  if (DEVELOPER_EMAILS.includes(normalized)) return 'developer';
-  if (PATRON_EMAILS.includes(normalized)) return 'patron';
+// Membership is resolved from the user's public.profiles row (is_admin drives
+// the developer badge, is_patron the patron badge — set after a "support"
+// in-app purchase). Both flags come through ProfileContext.
+export function badgeForFlags(flags: { isAdmin: boolean; isPatron: boolean }): UserBadge {
+  if (flags.isAdmin) return 'developer';
+  if (flags.isPatron) return 'patron';
   return 'general';
 }
 

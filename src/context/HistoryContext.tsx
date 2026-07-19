@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useProfile } from './ProfileContext';
 import { fetchUserStats, pushUserStats } from '../utils/userStats';
 import { pushLeaderboardScore } from '../utils/leaderboard';
+import { earnedRankIndex, RANK_MIN_ACCURACY } from '../constants/ranks';
 
 export type SessionMode = 'practice' | 'playback' | 'learning';
 
@@ -13,6 +14,7 @@ interface SessionRecord {
   minutes: number;
   correct?: number;  // practice sessions only — drives accuracy
   total?: number;
+  level?: number;    // practice sessions only — the sight-reading level, drives rank progression
 }
 
 export interface HistoryStats {
@@ -30,7 +32,7 @@ interface HistoryCtx {
    * Persisted separately from `records` so it never shrinks when old records
    * age out of the 90-day retention window. */
   points: number;
-  recordSession: (input: { mode: SessionMode; minutes: number; correct?: number; total?: number }) => void;
+  recordSession: (input: { mode: SessionMode; minutes: number; correct?: number; total?: number; level?: number }) => void;
   /** Call when the user finishes watching a rewarded ad on the Support screen. */
   recordAdWatch: () => void;
 }
@@ -84,7 +86,7 @@ function mergeRecords(local: SessionRecord[], server: unknown[]): SessionRecord[
 const Ctx = createContext<HistoryCtx | null>(null);
 
 export function HistoryProvider({ children }: { children: React.ReactNode }) {
-  const { profile } = useProfile();
+  const { profile, syncRank } = useProfile();
   const [records, setRecords] = useState<SessionRecord[]>([]);
   const [points, setPoints] = useState(0);
   const [loaded, setLoaded] = useState(false);
@@ -165,6 +167,34 @@ export function HistoryProvider({ children }: { children: React.ReactNode }) {
     return () => clearTimeout(id);
   }, [profile, hydratedUserId, points, records]);
 
+  // Rank earned from qualifying (≥90%) sight-reading sessions: the count drives
+  // the Beginner→Intermediate step, the hardest completed level drives the rest.
+  const earnedRank = useMemo(() => {
+    let qualifyingCount = 0;
+    let maxQualifyingLevel = 0;
+    for (const r of records) {
+      if (r.mode !== 'practice' || typeof r.correct !== 'number' || typeof r.total !== 'number' || r.total <= 0) continue;
+      if (r.correct / r.total < RANK_MIN_ACCURACY) continue;
+      qualifyingCount++;
+      if (typeof r.level === 'number') maxQualifyingLevel = Math.max(maxQualifyingLevel, r.level);
+    }
+    return earnedRankIndex({ qualifyingCount, maxQualifyingLevel });
+  }, [records]);
+
+  // Push a newly-earned (higher) rank to the server. The sync-rank function only
+  // ever raises the stored rank, so re-sending is harmless; the ref just avoids
+  // redundant calls. Resets when the signed-in user changes.
+  const rankSync = useRef<{ uid: string | null; synced: number }>({ uid: null, synced: -1 });
+  useEffect(() => {
+    if (!profile || hydratedUserId !== profile.id) return;
+    const st = rankSync.current;
+    if (st.uid !== profile.id) { st.uid = profile.id; st.synced = -1; }
+    if (earnedRank <= st.synced) return;
+    st.synced = earnedRank;
+    const id = setTimeout(() => { syncRank(earnedRank); }, SERVER_SYNC_DELAY);
+    return () => clearTimeout(id);
+  }, [profile, hydratedUserId, earnedRank, syncRank]);
+
   const addPoints = useCallback((amount: number) => {
     setPoints(prev => {
       const next = prev + amount;
@@ -173,7 +203,7 @@ export function HistoryProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  const recordSession = useCallback((input: { mode: SessionMode; minutes: number; correct?: number; total?: number }) => {
+  const recordSession = useCallback((input: { mode: SessionMode; minutes: number; correct?: number; total?: number; level?: number }) => {
     if (!(input.minutes > 0)) return;
     const now = new Date();
     const record: SessionRecord = {
@@ -183,6 +213,7 @@ export function HistoryProvider({ children }: { children: React.ReactNode }) {
       minutes: input.minutes,
       correct: input.correct,
       total: input.total,
+      level: input.level,
     };
     setRecords(prev => {
       const cutoff = toDayStr(addDays(now, -RETENTION_DAYS));

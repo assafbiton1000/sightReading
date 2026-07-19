@@ -52,10 +52,15 @@ Deno.serve(async (req: Request) => {
     }
 
     if (action === 'update') {
-      const { userId, points, rank } = body;
+      const { userId, points, rank, isAdmin, isPatron } = body;
       if (!userId) return json({ error: 'userId_required' }, 400);
       if (rank !== undefined && !RANKS.includes(rank)) return json({ error: 'invalid_rank' }, 400);
-      await updateUser(admin, userId, { points, rank });
+      await updateUser(admin, userId, {
+        points,
+        rank,
+        isAdmin: isAdmin === undefined ? undefined : !!isAdmin,
+        isPatron: isPatron === undefined ? undefined : !!isPatron,
+      });
       return json({ ok: true, users: await listUsers(admin) });
     }
 
@@ -67,7 +72,7 @@ Deno.serve(async (req: Request) => {
 
 interface AdminUserRow {
   id: string; email: string; name: string;
-  points: number; rank: string; isAdmin: boolean;
+  points: number; rank: string; isAdmin: boolean; isPatron: boolean;
   comments: number; joinedAt: string;
 }
 
@@ -87,12 +92,14 @@ async function listUsers(admin: SupabaseClient): Promise<AdminUserRow[]> {
 
   const [{ data: stats }, { data: profiles }, { data: comments }] = await Promise.all([
     admin.from('user_stats').select('user_id, points'),
-    admin.from('profiles').select('id, rank, is_admin'),
+    admin.from('profiles').select('id, rank, is_admin, is_patron'),
     admin.from('forum_comments').select('author_id'),
   ]);
 
   const pointsById = new Map<string, number>((stats ?? []).map((r) => [r.user_id, Number(r.points) || 0]));
-  const profById = new Map<string, { rank: string; is_admin: boolean }>((profiles ?? []).map((r) => [r.id, r]));
+  const profById = new Map<string, { rank: string; is_admin: boolean; is_patron: boolean }>(
+    (profiles ?? []).map((r) => [r.id, r]),
+  );
   const commentCount = new Map<string, number>();
   for (const c of comments ?? []) commentCount.set(c.author_id, (commentCount.get(c.author_id) ?? 0) + 1);
 
@@ -104,6 +111,7 @@ async function listUsers(admin: SupabaseClient): Promise<AdminUserRow[]> {
       points: pointsById.get(u.id) ?? 0,
       rank: profById.get(u.id)?.rank ?? 'beginner',
       isAdmin: !!profById.get(u.id)?.is_admin,
+      isPatron: !!profById.get(u.id)?.is_patron,
       comments: commentCount.get(u.id) ?? 0,
       joinedAt: u.created_at,
     }))
@@ -113,15 +121,15 @@ async function listUsers(admin: SupabaseClient): Promise<AdminUserRow[]> {
 async function updateUser(
   admin: SupabaseClient,
   userId: string,
-  patch: { points?: number; rank?: string },
+  patch: { points?: number; rank?: string; isAdmin?: boolean; isPatron?: boolean },
 ): Promise<void> {
   const now = new Date().toISOString();
+  // leaderboard_scores needs a display name; reuse the account's.
+  const { data: got } = await admin.auth.admin.getUserById(userId);
+  const name = got?.user ? displayName(got.user) : 'User';
 
   if (patch.points !== undefined && patch.points !== null) {
     const points = Math.max(0, Math.round(Number(patch.points)));
-    // leaderboard_scores needs a display name; reuse the account's.
-    const { data: got } = await admin.auth.admin.getUserById(userId);
-    const name = got?.user ? displayName(got.user) : 'User';
     // user_stats upsert only touches points/updated_at → the user's `records`
     // jsonb is preserved on update (and defaults to '[]' on a fresh insert).
     await admin.from('user_stats').upsert({ user_id: userId, points, updated_at: now }, { onConflict: 'user_id' });
@@ -131,7 +139,22 @@ async function updateUser(
     );
   }
 
-  if (patch.rank !== undefined) {
-    await admin.from('profiles').upsert({ id: userId, rank: patch.rank, updated_at: now }, { onConflict: 'id' });
+  // Rank + badge flags (is_admin drives the developer/Code Composer badge,
+  // is_patron the Music Patron badge). Apply, then mirror the resulting rank +
+  // effective badge onto the public leaderboard projection.
+  const profilePatch: Record<string, unknown> = {};
+  if (patch.rank !== undefined) profilePatch.rank = patch.rank;
+  if (patch.isAdmin !== undefined) profilePatch.is_admin = patch.isAdmin;
+  if (patch.isPatron !== undefined) profilePatch.is_patron = patch.isPatron;
+  if (Object.keys(profilePatch).length > 0) {
+    await admin.from('profiles').upsert({ id: userId, ...profilePatch, updated_at: now }, { onConflict: 'id' });
+    const { data: prof } = await admin
+      .from('profiles').select('is_admin, is_patron, rank').eq('id', userId).maybeSingle();
+    const badge = prof?.is_admin ? 'developer' : prof?.is_patron ? 'patron' : 'general';
+    const rank = typeof prof?.rank === 'string' ? prof.rank : 'beginner';
+    await admin.from('leaderboard_scores').upsert(
+      { user_id: userId, display_name: name, rank, badge, updated_at: now },
+      { onConflict: 'user_id' },
+    );
   }
 }

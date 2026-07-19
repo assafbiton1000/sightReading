@@ -274,6 +274,11 @@ export const he: T = {
   leaderboardEmpty: 'עדיין אין נקודות בטבלה — היו הראשונים!',
   leaderboardYou: 'אתם',
   leaderboardNotConfigured: 'טבלת המובילים תהיה זמינה בקרוב.',
+  rankBeginner: 'מתחיל',
+  rankIntermediate: 'בינוני',
+  rankAdvanced: 'מתקדם',
+  rankExpert: 'מומחה',
+  rankMaster: 'אלוף',
 
   startPlayingHint: 'התחל לנגן',
 };

@@ -274,6 +274,11 @@ export const ar: T = {
   leaderboardEmpty: 'لا توجد نتائج بعد — كن الأول!',
   leaderboardYou: 'أنت',
   leaderboardNotConfigured: 'ستكون لوحة المتصدرين متاحة قريبًا.',
+  rankBeginner: 'مبتدئ',
+  rankIntermediate: 'متوسط',
+  rankAdvanced: 'متقدم',
+  rankExpert: 'خبير',
+  rankMaster: 'محترف',
 
   startPlayingHint: 'ابدأ العزف',
 };

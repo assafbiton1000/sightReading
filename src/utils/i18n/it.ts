@@ -274,6 +274,11 @@ export const it: T = {
   leaderboardEmpty: 'Ancora nessun punteggio — sii il primo!',
   leaderboardYou: 'Tu',
   leaderboardNotConfigured: 'La classifica sarà presto disponibile.',
+  rankBeginner: 'Principiante',
+  rankIntermediate: 'Intermedio',
+  rankAdvanced: 'Avanzato',
+  rankExpert: 'Esperto',
+  rankMaster: 'Maestro',
 
   startPlayingHint: 'Inizia a suonare',
 };

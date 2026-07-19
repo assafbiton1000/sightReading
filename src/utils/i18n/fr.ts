@@ -274,6 +274,11 @@ export const fr: T = {
   leaderboardEmpty: "Aucun score pour l'instant — soyez le premier !",
   leaderboardYou: 'Vous',
   leaderboardNotConfigured: 'Le classement sera bientôt disponible.',
+  rankBeginner: 'Débutant',
+  rankIntermediate: 'Intermédiaire',
+  rankAdvanced: 'Avancé',
+  rankExpert: 'Expert',
+  rankMaster: 'Maître',
 
   startPlayingHint: 'Commencez à jouer',
 };

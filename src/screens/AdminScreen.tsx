@@ -82,6 +82,18 @@ export default function AdminScreen() {
     }
   }
 
+  async function toggleBadge(user: AdminUser, flag: 'isAdmin' | 'isPatron') {
+    setSavingId(user.id);
+    try {
+      const patch = flag === 'isAdmin' ? { isAdmin: !user.isAdmin } : { isPatron: !user.isPatron };
+      setUsers(await updateAdminUser({ userId: user.id, ...patch }));
+    } catch {
+      setError(true);
+    } finally {
+      setSavingId(null);
+    }
+  }
+
   return (
     <SafeAreaView style={s.safe}>
       <AppHeader />
@@ -182,6 +194,28 @@ export default function AdminScreen() {
                       <Feather name="chevron-down" size={16} color={C.muted} />
                     </View>
                   </TouchableOpacity>
+
+                  {/* Badge promotion */}
+                  <View style={s.badgeToggleRow}>
+                    <TouchableOpacity
+                      style={[s.badgeToggle, user.isPatron && s.badgeToggleOnPatron, saving && s.disabled]}
+                      onPress={() => toggleBadge(user, 'isPatron')}
+                      disabled={saving}
+                      activeOpacity={0.8}
+                    >
+                      <Feather name="award" size={13} color={user.isPatron ? '#f59e0b' : C.muted} />
+                      <Text style={[s.badgeToggleTxt, user.isPatron && { color: '#f59e0b' }]}>Patron</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[s.badgeToggle, user.isAdmin && s.badgeToggleOnDev, saving && s.disabled]}
+                      onPress={() => toggleBadge(user, 'isAdmin')}
+                      disabled={saving}
+                      activeOpacity={0.8}
+                    >
+                      <Feather name="code" size={13} color={user.isAdmin ? '#8b5cf6' : C.muted} />
+                      <Text style={[s.badgeToggleTxt, user.isAdmin && { color: '#8b5cf6' }]}>Code Composer</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               );
             })}
@@ -262,6 +296,16 @@ function makeStyles(C: ThemeColors) {
     rankLabel: { fontFamily: 'Heebo_600SemiBold', fontSize: 13, color: C.muted },
     rankValueWrap: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     rankValue: { fontFamily: 'Heebo_700Bold', fontSize: 13.5, color: C.text },
+
+    badgeToggleRow: { flexDirection: 'row', gap: 8 },
+    badgeToggle: {
+      flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+      backgroundColor: C.chipBg, borderRadius: 12, paddingVertical: 10,
+      borderWidth: 1.5, borderColor: 'transparent',
+    },
+    badgeToggleOnPatron: { borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.10)' },
+    badgeToggleOnDev: { borderColor: '#8b5cf6', backgroundColor: 'rgba(139,92,246,0.10)' },
+    badgeToggleTxt: { fontFamily: 'Heebo_700Bold', fontSize: 12.5, color: C.muted },
 
     modalWrap: { flex: 1, backgroundColor: 'rgba(10,10,20,0.45)', justifyContent: 'center', padding: 24 },
     modalCard: { backgroundColor: C.card, borderRadius: 20, padding: 16, gap: 6 },

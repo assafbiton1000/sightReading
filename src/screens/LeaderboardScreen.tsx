@@ -12,6 +12,8 @@ import { useTheme, ThemeColors } from '../utils/theme';
 import { fetchLeaderboard, LeaderboardEntry } from '../utils/leaderboard';
 import { isSupabaseConfigured } from '../utils/supabase';
 import { formatPoints } from '../utils/format';
+import { BADGE_META } from '../constants/badges';
+import { Rank } from '../constants/ranks';
 import AppHeader from '../components/AppHeader';
 
 type Nav = StackNavigationProp<RootStackParamList>;
@@ -96,15 +98,29 @@ export default function LeaderboardScreen() {
   );
 }
 
-function Row({ rank, entry, isYou, s, C }: { rank: number; entry: LeaderboardEntry; isYou: boolean; s: Styles; C: ThemeColors }) {
+function Row({ rank: pos, entry, isYou, s, C }: { rank: number; entry: LeaderboardEntry; isYou: boolean; s: Styles; C: ThemeColors }) {
   const { t } = useLang();
-  const medalColor = rank === 1 ? '#f59e0b' : rank === 2 ? '#9ca3af' : rank === 3 ? '#c2703d' : C.muted;
+  const medalColor = pos === 1 ? '#f59e0b' : pos === 2 ? '#9ca3af' : pos === 3 ? '#c2703d' : C.muted;
+  const bMeta = BADGE_META[entry.badge];
+  const rankNames: Record<Rank, string> = {
+    beginner: t.rankBeginner,
+    intermediate: t.rankIntermediate,
+    advanced: t.rankAdvanced,
+    expert: t.rankExpert,
+    master: t.rankMaster,
+  };
   return (
     <View style={[s.row, isYou && s.rowYou]}>
-      <Text style={[s.rank, { color: medalColor }]}>{rank}</Text>
-      <Text style={[s.rowName, isYou && s.rowNameYou]} numberOfLines={1}>
-        {entry.displayName}{isYou ? ` (${t.leaderboardYou})` : ''}
-      </Text>
+      <Text style={[s.rank, { color: medalColor }]}>{pos}</Text>
+      <View style={{ flex: 1 }}>
+        <Text style={[s.rowName, isYou && s.rowNameYou]} numberOfLines={1}>
+          {entry.displayName}{isYou ? ` (${t.leaderboardYou})` : ''}
+        </Text>
+        <View style={s.metaRow}>
+          <Feather name={bMeta.icon} size={11} color={bMeta.color} />
+          <Text style={s.rankLabel}>{rankNames[entry.rank] ?? entry.rank}</Text>
+        </View>
+      </View>
       <Text style={s.rowPoints}>{formatPoints(entry.points)}</Text>
     </View>
   );
@@ -137,8 +153,10 @@ function makeStyles(C: ThemeColors) {
     },
     rowYou: { borderColor: C.primary, borderWidth: 1.5, backgroundColor: C.primaryTint },
     rank: { fontFamily: 'Heebo_800ExtraBold', fontSize: 15, width: 26, textAlign: 'center' },
-    rowName: { flex: 1, fontFamily: 'Heebo_600SemiBold', fontSize: 14, color: C.text },
+    rowName: { fontFamily: 'Heebo_600SemiBold', fontSize: 14, color: C.text },
     rowNameYou: { fontFamily: 'Heebo_700Bold', color: C.primary },
+    metaRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 },
+    rankLabel: { fontFamily: 'Heebo_500Medium', fontSize: 11.5, color: C.muted },
     rowPoints: { fontFamily: 'Heebo_700Bold', fontSize: 14, color: C.text },
 
     emptyBox: {

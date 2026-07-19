@@ -45,6 +45,8 @@ interface ProfileCtx {
   rank: string | null;
   /** Verifies a Google Play support purchase server-side and, if valid, grants the Patron badge. Returns success. */
   verifyPurchase: (productId: string, purchaseToken: string) => Promise<boolean>;
+  /** Reports the rank earned from local practice; the server raises the stored rank to the higher of earned / admin-set. */
+  syncRank: (earnedRankIndex: number) => Promise<void>;
   /** Set when the user arrives through a reset-password email link; App navigates to ResetPassword. */
   passwordRecovery: boolean;
   clearPasswordRecovery: () => void;
@@ -185,6 +187,19 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     }
   }, [userId]);
 
+  // Reports the rank earned from local sight-reading practice. The sync-rank
+  // function stores max(current, earned) — never lowering an admin-set higher
+  // rank — and returns the effective rank, which we reflect locally.
+  const syncRank = useCallback(async (earnedRankIndex: number): Promise<void> => {
+    if (!isSupabaseConfigured || !userId) return;
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-rank', { body: { rankIndex: earnedRankIndex } });
+      if (!error && typeof data?.rank === 'string') setRank(data.rank);
+    } catch {
+      // Non-fatal: rank is cosmetic and will re-sync on the next qualifying session.
+    }
+  }, [userId]);
+
   const signUp = useCallback(async (name: string, email: string, password: string): Promise<SignUpResult> => {
     if (!isSupabaseConfigured) return { ok: false, error: 'not-configured' };
     try {
@@ -317,6 +332,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         isPatron,
         rank,
         verifyPurchase,
+        syncRank,
         passwordRecovery,
         clearPasswordRecovery,
         signUp,

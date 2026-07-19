@@ -1,9 +1,14 @@
 import { supabase, isSupabaseConfigured } from './supabase';
 
+import { Rank } from '../constants/ranks';
+import { UserBadge } from '../constants/badges';
+
 export interface LeaderboardEntry {
   userId: string;
   displayName: string;
   points: number;
+  rank: Rank;
+  badge: UserBadge;
 }
 
 const TABLE = 'leaderboard_scores';
@@ -26,9 +31,15 @@ export async function fetchLeaderboard(limit = 100): Promise<LeaderboardEntry[]>
   if (!isSupabaseConfigured) return [];
   const { data, error } = await supabase
     .from(TABLE)
-    .select('user_id, display_name, points')
+    .select('user_id, display_name, points, rank, badge')
     .order('points', { ascending: false })
     .limit(limit);
   if (error || !data) return [];
-  return data.map(row => ({ userId: row.user_id, displayName: row.display_name, points: row.points }));
+  return data.map(row => ({
+    userId: row.user_id,
+    displayName: row.display_name,
+    points: row.points,
+    rank: (row.rank ?? 'beginner') as Rank,
+    badge: (row.badge ?? 'general') as UserBadge,
+  }));
 }

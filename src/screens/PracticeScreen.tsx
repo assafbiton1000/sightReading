@@ -366,7 +366,7 @@ export default function PracticeScreen() {
     const minutes = sessionStartRef.current > 0 ? (Date.now() - sessionStartRef.current) / 60000 : 0;
     // Read the pre-session snapshot before recordSession updates it.
     const { streak: prevStreak, avgAccuracy: prevAvgAccuracy } = statsRef.current;
-    recordSession({ mode: 'practice', minutes, correct, total: ns.length });
+    recordSession({ mode: 'practice', minutes, correct, total: ns.length, level: levelId });
     finishedRef.current = { correct, total: ns.length, rhythmErrors, skipped, prevStreak, prevAvgAccuracy };
 
     stopMetronome();

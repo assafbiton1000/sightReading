@@ -314,6 +314,12 @@ export interface T {
   leaderboardEmpty: string;
   leaderboardYou: string;
   leaderboardNotConfigured: string;
+  // player ranks (shown on the leaderboard + profile)
+  rankBeginner: string;
+  rankIntermediate: string;
+  rankAdvanced: string;
+  rankExpert: string;
+  rankMaster: string;
 
   // practice start hint
   startPlayingHint: string;

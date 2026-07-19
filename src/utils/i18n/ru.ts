@@ -274,6 +274,11 @@ export const ru: T = {
   leaderboardEmpty: 'Пока нет результатов — будьте первым!',
   leaderboardYou: 'Вы',
   leaderboardNotConfigured: 'Таблица лидеров скоро будет доступна.',
+  rankBeginner: 'Новичок',
+  rankIntermediate: 'Средний',
+  rankAdvanced: 'Продвинутый',
+  rankExpert: 'Эксперт',
+  rankMaster: 'Мастер',
 
   startPlayingHint: 'Начните играть',
 };

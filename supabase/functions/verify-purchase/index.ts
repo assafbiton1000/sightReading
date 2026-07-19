@@ -128,13 +128,28 @@ Deno.serve(async (req: Request) => {
     // purchaseState: 0 = purchased, 1 = canceled, 2 = pending.
     if (purchase.purchaseState !== 0) return json({ error: 'not_purchased', state: purchase.purchaseState }, 402);
 
+    const now = new Date().toISOString();
     const { error } = await admin
       .from('profiles')
-      .upsert(
-        { id: userData.user.id, is_patron: true, updated_at: new Date().toISOString() },
-        { onConflict: 'id' },
-      );
+      .upsert({ id: userData.user.id, is_patron: true, updated_at: now }, { onConflict: 'id' });
     if (error) return json({ error: 'grant_failed', detail: error.message }, 500);
+
+    // Mirror the badge onto the public leaderboard row. An admin outranks a
+    // patron, so keep 'developer' if the account is also an admin.
+    const { data: prof } = await admin
+      .from('profiles').select('is_admin').eq('id', userData.user.id).maybeSingle();
+    const badge = prof?.is_admin ? 'developer' : 'patron';
+    const u = userData.user;
+    const meta = (u.user_metadata ?? {}) as Record<string, unknown>;
+    const name =
+      (typeof meta.name === 'string' && meta.name) ||
+      (typeof meta.full_name === 'string' && meta.full_name) ||
+      (u.email ? u.email.split('@')[0] : '') ||
+      'User';
+    await admin.from('leaderboard_scores').upsert(
+      { user_id: u.id, display_name: name, badge, updated_at: now },
+      { onConflict: 'user_id' },
+    );
 
     return json({ ok: true, isPatron: true });
   } catch (e) {

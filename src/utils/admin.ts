@@ -13,6 +13,7 @@ export interface AdminUser {
   points: number;
   rank: string;
   isAdmin: boolean;
+  isPatron: boolean;
   comments: number;
   joinedAt: string;
 }
@@ -26,8 +27,10 @@ export async function fetchAdminUsers(): Promise<AdminUser[]> {
   return (data?.users ?? []) as AdminUser[];
 }
 
-/** Updates a target user's points and/or rank; returns the refreshed full list. */
-export async function updateAdminUser(input: { userId: string; points?: number; rank?: string }): Promise<AdminUser[]> {
+/** Updates a target user's points, rank, and/or badges (is_admin / is_patron); returns the refreshed full list. */
+export async function updateAdminUser(
+  input: { userId: string; points?: number; rank?: string; isAdmin?: boolean; isPatron?: boolean },
+): Promise<AdminUser[]> {
   const { data, error } = await supabase.functions.invoke(FUNCTION, { body: { action: 'update', ...input } });
   if (error) throw error;
   return (data?.users ?? []) as AdminUser[];

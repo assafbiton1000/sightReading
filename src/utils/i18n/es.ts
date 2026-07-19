@@ -274,6 +274,11 @@ export const es: T = {
   leaderboardEmpty: '¡Aún no hay puntuaciones — sé el primero!',
   leaderboardYou: 'Tú',
   leaderboardNotConfigured: 'La tabla de clasificación estará disponible pronto.',
+  rankBeginner: 'Principiante',
+  rankIntermediate: 'Intermedio',
+  rankAdvanced: 'Avanzado',
+  rankExpert: 'Experto',
+  rankMaster: 'Maestro',
 
   startPlayingHint: 'Empieza a tocar',
 };

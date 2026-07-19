@@ -183,6 +183,7 @@ export const en: T = {
   writeReplyPlaceholder: 'Write a reply...',
   sendReplyBtn: 'Send',
   forumEmpty: 'No questions yet. Post the first one!',
+  forumPendingApproval: 'Your message was submitted and is awaiting approval by a moderator.',
   deleteBtn: 'Delete',
   deletePostConfirm: 'Delete this question? All its replies will be deleted too.',
   postConfirm: 'Are you sure you want to post this comment?',

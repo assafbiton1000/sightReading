@@ -183,6 +183,7 @@ export const ru: T = {
   writeReplyPlaceholder: 'Напишите ответ...',
   sendReplyBtn: 'Отправить',
   forumEmpty: 'Вопросов пока нет. Задайте первый!',
+  forumPendingApproval: 'Ваше сообщение отправлено и ожидает одобрения модератором.',
   deleteBtn: 'Удалить',
   deletePostConfirm: 'Удалить этот вопрос? Все ответы на него также будут удалены.',
   postConfirm: 'Вы уверены, что хотите опубликовать этот комментарий?',

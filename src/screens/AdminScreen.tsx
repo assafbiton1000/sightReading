@@ -5,6 +5,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { RootStackParamList } from '../navigation/types';
 import { useLang } from '../context/LangContext';
 import { useProfile } from '../context/ProfileContext';
 import { useTheme, ThemeColors } from '../utils/theme';
@@ -31,7 +33,7 @@ function joinedDate(iso: string): string {
 }
 
 export default function AdminScreen() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const { t } = useLang();
   const { isAdmin } = useProfile();
   const C = useTheme();
@@ -124,6 +126,11 @@ export default function AdminScreen() {
           </View>
         ) : (
           <>
+            <TouchableOpacity style={s.modLink} onPress={() => navigation.navigate('ForumModeration')} activeOpacity={0.85}>
+              <Feather name="shield" size={15} color={C.primary} />
+              <Text style={s.modLinkTxt}>Forum moderation</Text>
+              <Feather name="chevron-right" size={16} color={C.muted} />
+            </TouchableOpacity>
             <Text style={s.countTxt}>{users.length} user{users.length === 1 ? '' : 's'}</Text>
             {users.map(user => {
               const saving = savingId === user.id;
@@ -261,6 +268,13 @@ function makeStyles(C: ThemeColors) {
     centerTxt: { fontFamily: 'Heebo_500Medium', fontSize: 14, color: C.muted, textAlign: 'center' },
     retryBtn: { backgroundColor: C.primary, borderRadius: 12, paddingHorizontal: 22, paddingVertical: 10, marginTop: 4 },
     retryTxt: { fontFamily: 'Heebo_700Bold', fontSize: 13.5, color: '#fff' },
+
+    modLink: {
+      flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: C.card,
+      borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14, marginBottom: 14,
+      shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.07, shadowRadius: 10, elevation: 2,
+    },
+    modLinkTxt: { flex: 1, fontFamily: 'Heebo_700Bold', fontSize: 14, color: C.text },
 
     countTxt: { fontFamily: 'Heebo_600SemiBold', fontSize: 13, color: C.muted, marginBottom: 12 },
 

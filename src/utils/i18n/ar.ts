@@ -183,6 +183,7 @@ export const ar: T = {
   writeReplyPlaceholder: 'اكتب ردًا...',
   sendReplyBtn: 'إرسال',
   forumEmpty: 'لا توجد أسئلة بعد. انشر السؤال الأول!',
+  forumPendingApproval: 'تم إرسال رسالتك وهي بانتظار موافقة المشرف.',
   deleteBtn: 'حذف',
   deletePostConfirm: 'هل تريد حذف هذا السؤال؟ سيتم حذف جميع ردوده أيضًا.',
   postConfirm: 'هل أنت متأكد أنك تريد نشر هذا التعليق؟',

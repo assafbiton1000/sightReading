@@ -183,6 +183,7 @@ export const it: T = {
   writeReplyPlaceholder: 'Scrivi una risposta...',
   sendReplyBtn: 'Invia',
   forumEmpty: 'Ancora nessuna domanda. Pubblica la prima!',
+  forumPendingApproval: 'Il tuo messaggio è stato inviato ed è in attesa di approvazione da parte di un moderatore.',
   deleteBtn: 'Elimina',
   deletePostConfirm: 'Eliminare questa domanda? Verranno eliminate anche tutte le sue risposte.',
   postConfirm: 'Vuoi davvero pubblicare questo commento?',

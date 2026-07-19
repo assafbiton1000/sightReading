@@ -183,6 +183,7 @@ export const he: T = {
   writeReplyPlaceholder: 'כתבו תשובה...',
   sendReplyBtn: 'שליחה',
   forumEmpty: 'עוד אין שאלות בפורום. פרסמו את השאלה הראשונה!',
+  forumPendingApproval: 'ההודעה נשלחה וממתינה לאישור מנהל.',
   deleteBtn: 'מחיקה',
   deletePostConfirm: 'למחוק את השאלה? כל התשובות שלה יימחקו גם.',
   postConfirm: 'לפרסם את התגובה הזו?',

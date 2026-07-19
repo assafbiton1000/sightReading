@@ -183,6 +183,7 @@ export const de: T = {
   writeReplyPlaceholder: 'Antwort schreiben...',
   sendReplyBtn: 'Senden',
   forumEmpty: 'Noch keine Fragen. Stelle die erste!',
+  forumPendingApproval: 'Deine Nachricht wurde gesendet und wartet auf die Freigabe durch einen Moderator.',
   deleteBtn: 'Löschen',
   deletePostConfirm: 'Diese Frage löschen? Alle Antworten darauf werden ebenfalls gelöscht.',
   postConfirm: 'Möchten Sie diesen Beitrag wirklich veröffentlichen?',

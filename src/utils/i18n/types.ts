@@ -217,6 +217,7 @@ export interface T {
   writeReplyPlaceholder: string;
   sendReplyBtn: string;
   forumEmpty: string;
+  forumPendingApproval: string;
   deleteBtn: string;
   deletePostConfirm: string;
   postConfirm: string;         // confirm-before-posting a comment/reply

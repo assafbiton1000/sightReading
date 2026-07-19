@@ -6,6 +6,11 @@ import { supabase, isSupabaseConfigured } from './supabase';
 // can read, but a row can only be created or deleted by its author
 // (auth.uid() = author_id). See supabase/migrations for the schema/policies.
 //
+// Moderation: new comments are saved as status 'pending' and only appear on the
+// public forum once an admin approves them (status 'approved') — see the
+// forum-moderate Edge Function / ForumModerationScreen. loadPosts therefore
+// fetches only approved rows.
+//
 // Every function no-ops gracefully when Supabase isn't configured yet (or the
 // table hasn't been created): reads return [], writes just refetch. The UI then
 // shows an empty forum instead of crashing.
@@ -51,6 +56,7 @@ export async function loadPosts(): Promise<ForumPost[]> {
   const { data, error } = await supabase
     .from(TABLE)
     .select(SELECT)
+    .eq('status', 'approved')
     .order('created_at', { ascending: true });
   if (error || !data) return [];
   const rows = data as CommentRow[];

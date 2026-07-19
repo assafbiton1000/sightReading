@@ -213,6 +213,7 @@ function ForumSection({ posts, onPostsChange, onOpenPost, currentUserId, current
   const [qBody, setQBody] = useState('');
   const [confirmPost, setConfirmPost] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [pendingNotice, setPendingNotice] = useState(false);
 
   async function doPublish() {
     if (!currentUserId) return;
@@ -222,6 +223,7 @@ function ForumSection({ posts, onPostsChange, onOpenPost, currentUserId, current
     setAskOpen(false);
     setQTitle('');
     setQBody('');
+    setPendingNotice(true); // new post is 'pending' — it won't appear until an admin approves it
   }
 
   async function confirmDelete() {
@@ -233,6 +235,13 @@ function ForumSection({ posts, onPostsChange, onOpenPost, currentUserId, current
   return (
     <>
       <Text style={s.forumIntro}>{t.forumIntro}</Text>
+
+      {pendingNotice && (
+        <View style={s.pendingBox}>
+          <Feather name="clock" size={15} color="#f59e0b" />
+          <Text style={s.pendingTxt}>{t.forumPendingApproval}</Text>
+        </View>
+      )}
 
       {isSignedIn ? (
         <TouchableOpacity style={s.askBtn} onPress={() => setAskOpen(true)} activeOpacity={0.85}>
@@ -342,6 +351,7 @@ function ThreadView({ post, onPostsChange, onDeleted, currentUserId, currentUser
   const [confirmSend, setConfirmSend] = useState(false);
   const [confirmDeletePost, setConfirmDeletePost] = useState(false);
   const [confirmDeleteReplyId, setConfirmDeleteReplyId] = useState<string | null>(null);
+  const [pendingNotice, setPendingNotice] = useState(false);
 
   async function doSend() {
     if (!currentUserId) return;
@@ -349,6 +359,7 @@ function ThreadView({ post, onPostsChange, onDeleted, currentUserId, currentUser
     onPostsChange(next);
     setConfirmSend(false);
     setReply('');
+    setPendingNotice(true); // reply is 'pending' — hidden until an admin approves it
   }
 
   async function doDeletePost() {
@@ -391,6 +402,13 @@ function ThreadView({ post, onPostsChange, onDeleted, currentUserId, currentUser
         onConfirm={doDeletePost}
         t={t} s={s}
       />
+
+      {pendingNotice && (
+        <View style={s.pendingBox}>
+          <Feather name="clock" size={15} color="#f59e0b" />
+          <Text style={s.pendingTxt}>{t.forumPendingApproval}</Text>
+        </View>
+      )}
 
       <Text style={s.repliesHeader}>{t.repliesCount.replace('{n}', String(post.replies.length))}</Text>
 
@@ -493,6 +511,11 @@ function makeStyles(C: ThemeColors) {
     faqA: { fontFamily: 'Heebo_400Regular', fontSize: 13.5, color: C.text, lineHeight: 21, marginTop: 10, opacity: 0.85 },
 
     forumIntro: { fontFamily: 'Heebo_400Regular', fontSize: 13, color: C.muted, lineHeight: 19, marginBottom: 14 },
+    pendingBox: {
+      flexDirection: 'row', alignItems: 'center', gap: 8,
+      backgroundColor: 'rgba(245,158,11,0.12)', borderRadius: 12, padding: 12, marginBottom: 14,
+    },
+    pendingTxt: { flex: 1, fontFamily: 'Heebo_600SemiBold', fontSize: 12.5, color: C.text, lineHeight: 18 },
     askBtn: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
       backgroundColor: C.primary, borderRadius: 16, paddingVertical: 13, marginBottom: 16,

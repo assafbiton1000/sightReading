@@ -43,8 +43,8 @@ interface ProfileCtx {
   isPatron: boolean;
   /** The user's admin-assigned rank from public.profiles; null until loaded / when signed out. */
   rank: string | null;
-  /** Flags the signed-in user as a patron server-side after a successful support purchase. Returns success. */
-  grantPatron: () => Promise<boolean>;
+  /** Verifies a Google Play support purchase server-side and, if valid, grants the Patron badge. Returns success. */
+  verifyPurchase: (productId: string, purchaseToken: string) => Promise<boolean>;
   /** Set when the user arrives through a reset-password email link; App navigates to ResetPassword. */
   passwordRecovery: boolean;
   clearPasswordRecovery: () => void;
@@ -167,12 +167,16 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   }, [userId]);
 
   // Called by the Support screen after a successful in-app purchase. The
-  // grant-patron Edge Function flips profiles.is_patron for the caller; on
-  // success we reflect it locally so the Patron badge appears immediately.
-  const grantPatron = useCallback(async (): Promise<boolean> => {
+  // verify-purchase Edge Function checks the token against the Google Play
+  // Developer API and, only if it is a real paid purchase, flips
+  // profiles.is_patron. On success we reflect it locally so the Patron badge
+  // appears immediately.
+  const verifyPurchase = useCallback(async (productId: string, purchaseToken: string): Promise<boolean> => {
     if (!isSupabaseConfigured || !userId) return false;
     try {
-      const { data, error } = await supabase.functions.invoke('grant-patron', { body: {} });
+      const { data, error } = await supabase.functions.invoke('verify-purchase', {
+        body: { productId, purchaseToken },
+      });
       if (error || !data?.ok) return false;
       setIsPatron(true);
       return true;
@@ -312,7 +316,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         isAdmin,
         isPatron,
         rank,
-        grantPatron,
+        verifyPurchase,
         passwordRecovery,
         clearPasswordRecovery,
         signUp,

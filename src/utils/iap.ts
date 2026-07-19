@@ -6,8 +6,20 @@ import { Product } from 'expo-iap';
 // the app consumes each purchase so a supporter can tip again later. Every tier
 // grants the same cosmetic Patron badge — the tier only sets how much is given.
 //
+// This is how the app offers a "choose how much" experience: Google Play Billing
+// only sells fixed-price products (no arbitrary/custom amounts), so several price
+// points stand in for a free-choice field. Add or remove tiers by editing this
+// list AND creating/removing the matching product in Play Console — the
+// verify-purchase Edge Function also allow-lists exactly these IDs.
+//
 // Order matters: listed low → high, and the UI shows them in this order.
-export const SUPPORT_PRODUCT_IDS = ['support_tier_1', 'support_tier_2', 'support_tier_3'] as const;
+export const SUPPORT_PRODUCT_IDS = [
+  'support_tier_1',
+  'support_tier_2',
+  'support_tier_3',
+  'support_tier_4',
+  'support_tier_5',
+] as const;
 
 export type SupportProductId = (typeof SUPPORT_PRODUCT_IDS)[number];
 

@@ -31,7 +31,7 @@ export default function SupportScreen() {
   const navigation = useNavigation();
   const { t } = useLang();
   const { recordAdWatch } = useHistory();
-  const { profile, isPatron, grantPatron } = useProfile();
+  const { profile, isPatron, verifyPurchase } = useProfile();
   const C = useTheme();
   const s = makeStyles(C);
 
@@ -47,16 +47,23 @@ export default function SupportScreen() {
 
   const { connected, products, fetchProducts, requestPurchase } = useIAP({
     onPurchaseSuccess: async (purchase: Purchase) => {
-      // Consume the purchase (also acknowledges it, so Play won't auto-refund),
-      // then flag the account as a patron. Root finishTransaction is a stable
-      // module reference, safe to call from inside this callback.
+      // Verify the purchase server-side (against the Google Play Developer API)
+      // BEFORE granting the badge. Then consume it either way — consuming also
+      // acknowledges the transaction, so Play won't auto-refund a real payment.
+      // Root finishTransaction is a stable module reference, safe here.
+      const granted = purchase.purchaseToken
+        ? await verifyPurchase(purchase.productId, purchase.purchaseToken)
+        : false;
       try {
         await finishTransactionRoot({ purchase, isConsumable: true });
       } catch {}
-      await grantPatron();
       setPurchasing(null);
-      setSupportError(false);
-      setSupportThanked(true);
+      if (granted) {
+        setSupportError(false);
+        setSupportThanked(true);
+      } else {
+        setSupportError(true);
+      }
     },
     onPurchaseError: (error) => {
       setPurchasing(null);

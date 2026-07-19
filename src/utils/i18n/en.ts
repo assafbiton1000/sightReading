@@ -266,6 +266,8 @@ export const en: T = {
   supportThanksTitle: 'Thank you for your support!',
   supportThanksBody: 'You now have the Music Patron badge.',
   supportPurchaseError: "The purchase didn't go through. Please try again.",
+  supportAmountLabel: 'Enter an amount ({min}–{max})',
+  supportDonateBtn: 'Support',
 
   pointsLabel: 'Points',
   leaderboardTitle: 'Leaderboard',

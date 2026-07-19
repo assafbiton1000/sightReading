@@ -266,6 +266,8 @@ export const ar: T = {
   supportThanksTitle: 'شكرًا لدعمك!',
   supportThanksBody: 'أصبحت لديك الآن شارة Music Patron.',
   supportPurchaseError: 'لم تكتمل عملية الشراء. حاول مرة أخرى.',
+  supportAmountLabel: 'أدخل مبلغًا ({min}–{max})',
+  supportDonateBtn: 'ادعم',
 
   pointsLabel: 'النقاط',
   leaderboardTitle: 'لوحة المتصدرين',

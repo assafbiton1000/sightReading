@@ -266,6 +266,8 @@ export const fr: T = {
   supportThanksTitle: 'Merci pour votre soutien !',
   supportThanksBody: 'Vous avez maintenant le badge Music Patron.',
   supportPurchaseError: "L'achat n'a pas abouti. Veuillez réessayer.",
+  supportAmountLabel: 'Saisissez un montant ({min}–{max})',
+  supportDonateBtn: 'Soutenir',
 
   pointsLabel: 'Points',
   leaderboardTitle: 'Classement',

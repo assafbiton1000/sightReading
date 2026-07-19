@@ -266,6 +266,8 @@ export const he: T = {
   supportThanksTitle: 'תודה על התמיכה!',
   supportThanksBody: 'קיבלתם את תג ה-Music Patron.',
   supportPurchaseError: 'הרכישה לא הושלמה. נסו שוב.',
+  supportAmountLabel: 'הזינו סכום ({min}–{max})',
+  supportDonateBtn: 'תמכו',
 
   pointsLabel: 'נקודות',
   leaderboardTitle: 'טבלת מובילים',

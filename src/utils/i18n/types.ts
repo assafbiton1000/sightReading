@@ -305,6 +305,8 @@ export interface T {
   supportThanksTitle: string;
   supportThanksBody: string;
   supportPurchaseError: string;
+  supportAmountLabel: string; // "{min}" / "{max}" placeholders
+  supportDonateBtn: string;
 
   // points + leaderboard
   pointsLabel: string;

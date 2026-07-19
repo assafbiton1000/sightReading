@@ -266,6 +266,8 @@ export const pt: T = {
   supportThanksTitle: 'Obrigado pelo seu apoio!',
   supportThanksBody: 'Agora você tem o selo Music Patron.',
   supportPurchaseError: 'A compra não foi concluída. Tente novamente.',
+  supportAmountLabel: 'Digite um valor ({min}–{max})',
+  supportDonateBtn: 'Apoiar',
 
   pointsLabel: 'Pontos',
   leaderboardTitle: 'Classificação',

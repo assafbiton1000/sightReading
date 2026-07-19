@@ -266,6 +266,8 @@ export const ru: T = {
   supportThanksTitle: 'Спасибо за поддержку!',
   supportThanksBody: 'Теперь у вас есть значок Music Patron.',
   supportPurchaseError: 'Покупка не завершена. Попробуйте ещё раз.',
+  supportAmountLabel: 'Введите сумму ({min}–{max})',
+  supportDonateBtn: 'Поддержать',
 
   pointsLabel: 'Очки',
   leaderboardTitle: 'Таблица лидеров',

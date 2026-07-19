@@ -266,6 +266,8 @@ export const es: T = {
   supportThanksTitle: '¡Gracias por tu apoyo!',
   supportThanksBody: 'Ahora tienes la insignia Music Patron.',
   supportPurchaseError: 'La compra no se completó. Inténtalo de nuevo.',
+  supportAmountLabel: 'Introduce un importe ({min}–{max})',
+  supportDonateBtn: 'Apoyar',
 
   pointsLabel: 'Puntos',
   leaderboardTitle: 'Tabla de clasificación',

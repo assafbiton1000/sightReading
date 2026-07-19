@@ -18,15 +18,17 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const ANDROID_PACKAGE = 'com.freepacepiano.app';
 
-// Only these products grant Patron — never trust an arbitrary productId from the
-// client. Keep in sync with src/utils/iap.ts SUPPORT_PRODUCT_IDS.
-const ALLOWED_PRODUCTS = new Set([
-  'support_tier_1',
-  'support_tier_2',
-  'support_tier_3',
-  'support_tier_4',
-  'support_tier_5',
-]);
+// Only the support-bank products grant Patron — never trust an arbitrary
+// productId from the client. Ids are `support_<n>` for a whole amount in range;
+// keep the range in sync with src/utils/iap.ts (SUPPORT_MIN/MAX_AMOUNT).
+const SUPPORT_MIN_AMOUNT = 5;
+const SUPPORT_MAX_AMOUNT = 50;
+function isAllowedProduct(id: string): boolean {
+  const m = /^support_(\d+)$/.exec(id);
+  if (!m) return false;
+  const n = Number(m[1]);
+  return n >= SUPPORT_MIN_AMOUNT && n <= SUPPORT_MAX_AMOUNT;
+}
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -101,7 +103,7 @@ Deno.serve(async (req: Request) => {
     const body = await req.json().catch(() => ({}));
     const productId = String(body.productId ?? '');
     const purchaseToken = String(body.purchaseToken ?? '');
-    if (!ALLOWED_PRODUCTS.has(productId)) return json({ error: 'unknown_product' }, 400);
+    if (!isAllowedProduct(productId)) return json({ error: 'unknown_product' }, 400);
     if (!purchaseToken) return json({ error: 'missing_purchase_token' }, 400);
 
     const admin = createClient(

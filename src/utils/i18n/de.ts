@@ -266,6 +266,8 @@ export const de: T = {
   supportThanksTitle: 'Danke für deine Unterstützung!',
   supportThanksBody: 'Du hast jetzt das Music-Patron-Abzeichen.',
   supportPurchaseError: 'Der Kauf war nicht erfolgreich. Bitte versuche es erneut.',
+  supportAmountLabel: 'Betrag eingeben ({min}–{max})',
+  supportDonateBtn: 'Unterstützen',
 
   pointsLabel: 'Punkte',
   leaderboardTitle: 'Bestenliste',

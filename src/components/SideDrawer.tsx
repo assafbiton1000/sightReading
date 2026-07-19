@@ -26,7 +26,7 @@ interface DrawerItem {
 export default function SideDrawer({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const navigation = useNavigation<Nav>();
   const { t } = useLang();
-  const { profile, logout } = useProfile();
+  const { profile, isAdmin, logout } = useProfile();
   const C = useTheme();
   const s = makeStyles(C);
   const translateX = useRef(new Animated.Value(-DRAWER_W)).current;
@@ -51,7 +51,7 @@ export default function SideDrawer({ visible, onClose }: { visible: boolean; onC
 
   if (!mounted) return null;
 
-  function go(screen: 'Home' | 'Learning' | 'Settings' | 'Statistics' | 'Help' | 'About' | 'Support' | 'Leaderboard' | 'Profile') {
+  function go(screen: 'Home' | 'Learning' | 'Settings' | 'Statistics' | 'Help' | 'About' | 'Support' | 'Leaderboard' | 'Profile' | 'Admin') {
     onClose();
     navigation.navigate(screen);
   }
@@ -66,6 +66,9 @@ export default function SideDrawer({ visible, onClose }: { visible: boolean; onC
     { key: 'about',    label: t.drawerAbout,          icon: 'info',          onPress: () => go('About') },
     { key: 'support',  label: t.drawerSupport,        icon: 'gift',          onPress: () => go('Support') },
     { key: 'leaderboard', label: t.drawerLeaderboard, icon: 'award',         onPress: () => go('Leaderboard') },
+    // Admin dashboard: shown only to admin accounts. Navigation to a screen
+    // this row can't reach is still gated server-side by the Edge Function.
+    ...(isAdmin ? [{ key: 'admin', label: 'Admin', icon: 'shield' as FeatherIcon, onPress: () => go('Admin') }] : []),
   ];
 
   const bottomItems: DrawerItem[] = [

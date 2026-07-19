@@ -185,6 +185,8 @@ export const ru: T = {
   forumEmpty: 'Вопросов пока нет. Задайте первый!',
   deleteBtn: 'Удалить',
   deletePostConfirm: 'Удалить этот вопрос? Все ответы на него также будут удалены.',
+  postConfirm: 'Вы уверены, что хотите опубликовать этот комментарий?',
+  forumSignInPrompt: 'Войдите, чтобы публиковать вопросы и ответы.',
   timeJustNow: 'только что',
   timeMinAgo: '{n} мин назад',
   timeHourAgo: '{n} ч назад',

@@ -30,6 +30,7 @@ import AuthScreen from './src/screens/AuthScreen';
 import ResetPasswordScreen from './src/screens/ResetPasswordScreen';
 import SupportScreen from './src/screens/SupportScreen';
 import LeaderboardScreen from './src/screens/LeaderboardScreen';
+import AdminScreen from './src/screens/AdminScreen';
 import mobileAds from 'react-native-google-mobile-ads';
 import { LangProvider, useLang } from './src/context/LangContext';
 import { SettingsProvider, useSettings } from './src/context/SettingsContext';
@@ -100,6 +101,7 @@ function AppContent() {
         <Stack.Screen name="Support" component={SupportScreen} />
         <Stack.Screen name="Leaderboard" component={LeaderboardScreen} />
         <Stack.Screen name="Profile" component={ProfileScreen} />
+        <Stack.Screen name="Admin" component={AdminScreen} />
         <Stack.Screen name="Auth" component={AuthScreen} />
         <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
       </Stack.Navigator>

@@ -185,6 +185,8 @@ export const ar: T = {
   forumEmpty: 'لا توجد أسئلة بعد. انشر السؤال الأول!',
   deleteBtn: 'حذف',
   deletePostConfirm: 'هل تريد حذف هذا السؤال؟ سيتم حذف جميع ردوده أيضًا.',
+  postConfirm: 'هل أنت متأكد أنك تريد نشر هذا التعليق؟',
+  forumSignInPrompt: 'سجّل الدخول لنشر الأسئلة والردود.',
   timeJustNow: 'الآن',
   timeMinAgo: 'قبل {n} د',
   timeHourAgo: 'قبل {n} س',

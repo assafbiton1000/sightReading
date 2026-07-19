@@ -6,18 +6,30 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
 import { useLang } from '../context/LangContext';
 import { useProfile } from '../context/ProfileContext';
 import { useTheme, ThemeColors } from '../utils/theme';
 import { T } from '../utils/i18n';
+import { RootStackParamList } from '../navigation/types';
 import { getFaq, FaqCategory } from '../constants/faq';
-import { ForumPost, loadPosts, addPost, addReply, deletePost } from '../utils/forumStore';
-import { badgeForEmail } from '../constants/badges';
+import { ForumPost, loadPosts, addPost, addReply, deleteComment } from '../utils/forumStore';
 import AppHeader from '../components/AppHeader';
 
 type Styles = ReturnType<typeof makeStyles>;
+type Nav = StackNavigationProp<RootStackParamList>;
 type Tab = 'faq' | 'forum';
 type CatFilter = 'all' | FaqCategory;
+
+// Shared props threaded into both the list and thread views: who's signed in
+// (drives author-only delete + posting gate) and how to send them to sign in.
+interface ForumViewProps {
+  currentUserId: string | null;
+  currentUserName: string;
+  isSignedIn: boolean;
+  onRequireSignIn: () => void;
+  t: T; C: ThemeColors; s: Styles;
+}
 
 function relTime(ts: number, t: T): string {
   const mins = Math.floor((Date.now() - ts) / 60000);
@@ -29,26 +41,35 @@ function relTime(ts: number, t: T): string {
 }
 
 export default function HelpScreen() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<Nav>();
   const { t, lang } = useLang();
   const { profile } = useProfile();
   const C = useTheme();
   const s = makeStyles(C);
 
-  // Only the "Code Composer" (developer) badge can delete forum posts.
-  const canDelete = profile ? badgeForEmail(profile.email) === 'developer' : false;
+  const currentUserId = profile?.id ?? null;
+  const currentUserName = profile?.name ?? '';
+  const isSignedIn = !!profile;
 
   const [tab, setTab] = useState<Tab>('faq');
   const [posts, setPosts] = useState<ForumPost[]>([]);
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
 
+  // Reload when the signed-in user changes so posts (and their author-only
+  // delete controls) reflect the current session, e.g. right after signing in.
   useEffect(() => {
     let cancelled = false;
-    loadPosts(lang).then(p => { if (!cancelled) setPosts(p); });
+    loadPosts().then(p => { if (!cancelled) setPosts(p); });
     return () => { cancelled = true; };
-  }, []);
+  }, [currentUserId]);
 
   const selectedPost = posts.find(p => p.id === selectedPostId) ?? null;
+
+  const forumProps: ForumViewProps = {
+    currentUserId, currentUserName, isSignedIn,
+    onRequireSignIn: () => navigation.navigate('Auth', { mode: 'signin' }),
+    t, C, s,
+  };
 
   return (
     <SafeAreaView style={s.safe}>
@@ -74,13 +95,12 @@ export default function HelpScreen() {
               post={selectedPost}
               onPostsChange={setPosts}
               onDeleted={() => setSelectedPostId(null)}
-              canDelete={canDelete}
-              t={t} C={C} s={s}
+              {...forumProps}
             />
           ) : tab === 'faq' ? (
             <FaqSection t={t} lang={lang} C={C} s={s} />
           ) : (
-            <ForumSection posts={posts} onPostsChange={setPosts} onOpenPost={setSelectedPostId} canDelete={canDelete} t={t} C={C} s={s} />
+            <ForumSection posts={posts} onPostsChange={setPosts} onOpenPost={setSelectedPostId} {...forumProps} />
           )}
         </ScrollView>
       </KeyboardAvoidingView>
@@ -148,20 +168,24 @@ function FaqSection({ t, lang, C, s }: { t: T; lang: Parameters<typeof getFaq>[0
 
 // ---------- Forum ----------
 
-function ConfirmDeleteModal({ visible, onCancel, onConfirm, t, s }: {
-  visible: boolean; onCancel: () => void; onConfirm: () => void; t: T; s: Styles;
+// Generic confirm dialog. `preview` shows the exact text about to be posted
+// (the "showing their text" step of the post-confirmation requirement).
+function ConfirmModal({ visible, message, preview, confirmLabel, destructive, onCancel, onConfirm, t, s }: {
+  visible: boolean; message: string; preview?: string; confirmLabel: string; destructive?: boolean;
+  onCancel: () => void; onConfirm: () => void; t: T; s: Styles;
 }) {
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
       <View style={s.modalWrap}>
         <View style={s.modalCard}>
-          <Text style={s.confirmTxt}>{t.deletePostConfirm}</Text>
+          <Text style={s.confirmTxt}>{message}</Text>
+          {preview ? <Text style={s.previewBox} numberOfLines={6}>{preview}</Text> : null}
           <View style={s.modalBtns}>
             <TouchableOpacity style={s.cancelBtn} onPress={onCancel} activeOpacity={0.8}>
               <Text style={s.cancelBtnTxt}>{t.cancelBtn}</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={s.deleteBtn} onPress={onConfirm} activeOpacity={0.85}>
-              <Text style={s.publishBtnTxt}>{t.deleteBtn}</Text>
+            <TouchableOpacity style={destructive ? s.deleteBtn : s.publishBtn} onPress={onConfirm} activeOpacity={0.85}>
+              <Text style={s.publishBtnTxt}>{confirmLabel}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -170,42 +194,54 @@ function ConfirmDeleteModal({ visible, onCancel, onConfirm, t, s }: {
   );
 }
 
-function ForumSection({ posts, onPostsChange, onOpenPost, canDelete, t, C, s }: {
+function SignInPrompt({ onRequireSignIn, t, s }: { onRequireSignIn: () => void; t: T; s: Styles }) {
+  return (
+    <View style={s.signInBox}>
+      <Text style={s.signInTxt}>{t.forumSignInPrompt}</Text>
+      <TouchableOpacity style={s.publishBtn} onPress={onRequireSignIn} activeOpacity={0.85}>
+        <Text style={s.publishBtnTxt}>{t.profileLoginBtn}</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+function ForumSection({ posts, onPostsChange, onOpenPost, currentUserId, currentUserName, isSignedIn, onRequireSignIn, t, C, s }: ForumViewProps & {
   posts: ForumPost[]; onPostsChange: (p: ForumPost[]) => void; onOpenPost: (id: string) => void;
-  canDelete: boolean; t: T; C: ThemeColors; s: Styles;
 }) {
   const [askOpen, setAskOpen] = useState(false);
-  const [name, setName] = useState('');
   const [qTitle, setQTitle] = useState('');
   const [qBody, setQBody] = useState('');
+  const [confirmPost, setConfirmPost] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
-  async function confirmDelete() {
-    if (!confirmDeleteId) return;
-    onPostsChange(await deletePost(confirmDeleteId));
-    setConfirmDeleteId(null);
-  }
-
-  async function publish() {
-    const next = await addPost({
-      author: name.trim() || t.anonymousName,
-      title: qTitle.trim(),
-      body: qBody.trim(),
-    });
+  async function doPublish() {
+    if (!currentUserId) return;
+    const next = await addPost({ authorId: currentUserId, authorName: currentUserName, title: qTitle.trim(), body: qBody.trim() });
     onPostsChange(next);
+    setConfirmPost(false);
     setAskOpen(false);
     setQTitle('');
     setQBody('');
+  }
+
+  async function confirmDelete() {
+    if (!confirmDeleteId) return;
+    onPostsChange(await deleteComment(confirmDeleteId));
+    setConfirmDeleteId(null);
   }
 
   return (
     <>
       <Text style={s.forumIntro}>{t.forumIntro}</Text>
 
-      <TouchableOpacity style={s.askBtn} onPress={() => setAskOpen(true)} activeOpacity={0.85}>
-        <Feather name="edit-3" size={16} color="#fff" />
-        <Text style={s.askBtnTxt}>{t.askQuestionBtn}</Text>
-      </TouchableOpacity>
+      {isSignedIn ? (
+        <TouchableOpacity style={s.askBtn} onPress={() => setAskOpen(true)} activeOpacity={0.85}>
+          <Feather name="edit-3" size={16} color="#fff" />
+          <Text style={s.askBtnTxt}>{t.askQuestionBtn}</Text>
+        </TouchableOpacity>
+      ) : (
+        <SignInPrompt onRequireSignIn={onRequireSignIn} t={t} s={s} />
+      )}
 
       {posts.length === 0 && (
         <View style={s.emptyBox}>
@@ -225,23 +261,38 @@ function ForumSection({ posts, onPostsChange, onOpenPost, canDelete, t, C, s }: 
                 <Feather name="message-square" size={12} color={C.primary} />
                 <Text style={s.repliesBadgeTxt}>{t.repliesCount.replace('{n}', String(post.replies.length))}</Text>
               </View>
-              <TouchableOpacity
-                style={[s.trashBtn, !canDelete && s.publishBtnDisabled]}
-                onPress={() => setConfirmDeleteId(post.id)}
-                disabled={!canDelete}
-                activeOpacity={0.7}
-              >
-                <Feather name="trash-2" size={14} color={canDelete ? '#ef4444' : C.muted} />
-              </TouchableOpacity>
+              {/* Delete only renders for the post's own author. */}
+              {post.authorId === currentUserId && (
+                <TouchableOpacity
+                  style={s.trashBtn}
+                  onPress={() => setConfirmDeleteId(post.id)}
+                  activeOpacity={0.7}
+                >
+                  <Feather name="trash-2" size={14} color="#ef4444" />
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         </TouchableOpacity>
       ))}
 
-      <ConfirmDeleteModal
+      <ConfirmModal
         visible={confirmDeleteId !== null}
+        message={t.deletePostConfirm}
+        confirmLabel={t.deleteBtn}
+        destructive
         onCancel={() => setConfirmDeleteId(null)}
         onConfirm={confirmDelete}
+        t={t} s={s}
+      />
+
+      <ConfirmModal
+        visible={confirmPost}
+        message={t.postConfirm}
+        preview={qBody.trim()}
+        confirmLabel={t.publishBtn}
+        onCancel={() => setConfirmPost(false)}
+        onConfirm={doPublish}
         t={t} s={s}
       />
 
@@ -249,13 +300,6 @@ function ForumSection({ posts, onPostsChange, onOpenPost, canDelete, t, C, s }: 
         <KeyboardAvoidingView style={s.modalWrap} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View style={s.modalCard}>
             <Text style={s.modalTitle}>{t.newQuestionTitle}</Text>
-            <TextInput
-              style={s.input}
-              placeholder={t.qNamePlaceholder}
-              placeholderTextColor={C.muted}
-              value={name}
-              onChangeText={setName}
-            />
             <TextInput
               style={s.input}
               placeholder={t.qTitlePlaceholder}
@@ -277,7 +321,7 @@ function ForumSection({ posts, onPostsChange, onOpenPost, canDelete, t, C, s }: 
               </TouchableOpacity>
               <TouchableOpacity
                 style={[s.publishBtn, !(qTitle.trim() && qBody.trim()) && s.publishBtnDisabled]}
-                onPress={publish}
+                onPress={() => setConfirmPost(true)}
                 disabled={!(qTitle.trim() && qBody.trim())}
                 activeOpacity={0.85}
               >
@@ -291,26 +335,35 @@ function ForumSection({ posts, onPostsChange, onOpenPost, canDelete, t, C, s }: 
   );
 }
 
-function ThreadView({ post, onPostsChange, onDeleted, canDelete, t, C, s }: {
+function ThreadView({ post, onPostsChange, onDeleted, currentUserId, currentUserName, isSignedIn, onRequireSignIn, t, C, s }: ForumViewProps & {
   post: ForumPost; onPostsChange: (p: ForumPost[]) => void; onDeleted: () => void;
-  canDelete: boolean; t: T; C: ThemeColors; s: Styles;
 }) {
   const [reply, setReply] = useState('');
-  const [name, setName] = useState('');
-  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmSend, setConfirmSend] = useState(false);
+  const [confirmDeletePost, setConfirmDeletePost] = useState(false);
+  const [confirmDeleteReplyId, setConfirmDeleteReplyId] = useState<string | null>(null);
 
-  async function send() {
-    const next = await addReply(post.id, { author: name.trim() || t.anonymousName, body: reply.trim() });
+  async function doSend() {
+    if (!currentUserId) return;
+    const next = await addReply(post.id, { authorId: currentUserId, authorName: currentUserName, body: reply.trim() });
     onPostsChange(next);
+    setConfirmSend(false);
     setReply('');
   }
 
-  async function confirmDelete() {
-    const next = await deletePost(post.id);
-    setConfirmOpen(false);
+  async function doDeletePost() {
+    const next = await deleteComment(post.id);
+    setConfirmDeletePost(false);
     // Order matters: clear the selection before the posts update so the screen
     // never renders a thread for a post that no longer exists.
     onDeleted();
+    onPostsChange(next);
+  }
+
+  async function doDeleteReply() {
+    if (!confirmDeleteReplyId) return;
+    const next = await deleteComment(confirmDeleteReplyId);
+    setConfirmDeleteReplyId(null);
     onPostsChange(next);
   }
 
@@ -321,21 +374,21 @@ function ThreadView({ post, onPostsChange, onDeleted, canDelete, t, C, s }: {
         <Text style={s.threadBody}>{post.body}</Text>
         <View style={s.postMeta}>
           <Text style={s.postMetaTxt}>{post.author} · {relTime(post.createdAt, t)}</Text>
-          <TouchableOpacity
-            style={[s.trashBtn, !canDelete && s.publishBtnDisabled]}
-            onPress={() => setConfirmOpen(true)}
-            disabled={!canDelete}
-            activeOpacity={0.7}
-          >
-            <Feather name="trash-2" size={14} color={canDelete ? '#ef4444' : C.muted} />
-          </TouchableOpacity>
+          {post.authorId === currentUserId && (
+            <TouchableOpacity style={s.trashBtn} onPress={() => setConfirmDeletePost(true)} activeOpacity={0.7}>
+              <Feather name="trash-2" size={14} color="#ef4444" />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
-      <ConfirmDeleteModal
-        visible={confirmOpen}
-        onCancel={() => setConfirmOpen(false)}
-        onConfirm={confirmDelete}
+      <ConfirmModal
+        visible={confirmDeletePost}
+        message={t.deletePostConfirm}
+        confirmLabel={t.deleteBtn}
+        destructive
+        onCancel={() => setConfirmDeletePost(false)}
+        onConfirm={doDeletePost}
         t={t} s={s}
       />
 
@@ -346,37 +399,63 @@ function ThreadView({ post, onPostsChange, onDeleted, canDelete, t, C, s }: {
       {post.replies.map(r => (
         <View key={r.id} style={s.replyCard}>
           <Text style={s.replyBody}>{r.body}</Text>
-          <Text style={s.postMetaTxt}>{r.author} · {relTime(r.createdAt, t)}</Text>
+          <View style={s.replyMetaRow}>
+            <Text style={s.postMetaTxt}>{r.author} · {relTime(r.createdAt, t)}</Text>
+            {r.authorId === currentUserId && (
+              <TouchableOpacity style={s.trashBtnSm} onPress={() => setConfirmDeleteReplyId(r.id)} activeOpacity={0.7}>
+                <Feather name="trash-2" size={13} color="#ef4444" />
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
       ))}
 
-      <View style={s.replyBox}>
-        <TextInput
-          style={s.input}
-          placeholder={t.qNamePlaceholder}
-          placeholderTextColor={C.muted}
-          value={name}
-          onChangeText={setName}
-        />
-        <View style={s.replyRow}>
-          <TextInput
-            style={[s.input, s.replyInput]}
-            placeholder={t.writeReplyPlaceholder}
-            placeholderTextColor={C.muted}
-            value={reply}
-            onChangeText={setReply}
-            multiline
-          />
-          <TouchableOpacity
-            style={[s.sendBtn, !reply.trim() && s.publishBtnDisabled]}
-            onPress={send}
-            disabled={!reply.trim()}
-            activeOpacity={0.85}
-          >
-            <Feather name="send" size={17} color="#fff" />
-          </TouchableOpacity>
+      <ConfirmModal
+        visible={confirmDeleteReplyId !== null}
+        message={t.deletePostConfirm}
+        confirmLabel={t.deleteBtn}
+        destructive
+        onCancel={() => setConfirmDeleteReplyId(null)}
+        onConfirm={doDeleteReply}
+        t={t} s={s}
+      />
+
+      {isSignedIn ? (
+        <View style={s.replyBox}>
+          <View style={s.replyRow}>
+            <TextInput
+              style={[s.input, s.replyInput]}
+              placeholder={t.writeReplyPlaceholder}
+              placeholderTextColor={C.muted}
+              value={reply}
+              onChangeText={setReply}
+              multiline
+            />
+            <TouchableOpacity
+              style={[s.sendBtn, !reply.trim() && s.publishBtnDisabled]}
+              onPress={() => setConfirmSend(true)}
+              disabled={!reply.trim()}
+              activeOpacity={0.85}
+            >
+              <Feather name="send" size={17} color="#fff" />
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
+      ) : (
+        <View style={{ marginTop: 14 }}>
+          <SignInPrompt onRequireSignIn={onRequireSignIn} t={t} s={s} />
+        </View>
+      )}
+
+      <ConfirmModal
+        visible={confirmSend}
+        message={t.postConfirm}
+        preview={reply.trim()}
+        confirmLabel={t.sendReplyBtn}
+        onCancel={() => setConfirmSend(false)}
+        onConfirm={doSend}
+        t={t} s={s}
+      />
     </>
   );
 }
@@ -420,6 +499,12 @@ function makeStyles(C: ThemeColors) {
     },
     askBtnTxt: { fontFamily: 'Heebo_700Bold', fontSize: 14.5, color: '#fff' },
 
+    signInBox: {
+      alignItems: 'center', gap: 12, backgroundColor: C.card, borderRadius: 16,
+      padding: 20, marginBottom: 16,
+    },
+    signInTxt: { fontFamily: 'Heebo_500Medium', fontSize: 13.5, color: C.muted, textAlign: 'center', lineHeight: 20 },
+
     postCard: {
       backgroundColor: C.card, borderRadius: 16, padding: 16, marginBottom: 10,
       shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.07, shadowRadius: 10, elevation: 2,
@@ -438,6 +523,10 @@ function makeStyles(C: ThemeColors) {
       width: 30, height: 30, borderRadius: 10, alignItems: 'center', justifyContent: 'center',
       backgroundColor: 'rgba(239,68,68,0.10)',
     },
+    trashBtnSm: {
+      width: 26, height: 26, borderRadius: 9, alignItems: 'center', justifyContent: 'center',
+      backgroundColor: 'rgba(239,68,68,0.10)',
+    },
 
     threadCard: {
       backgroundColor: C.card, borderRadius: 16, padding: 16, marginBottom: 18,
@@ -450,6 +539,7 @@ function makeStyles(C: ThemeColors) {
       backgroundColor: C.chipBg, borderRadius: 14, padding: 13, marginBottom: 8,
     },
     replyBody: { fontFamily: 'Heebo_400Regular', fontSize: 13, color: C.text, lineHeight: 19 },
+    replyMetaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
 
     replyBox: { marginTop: 14, gap: 8 },
     replyRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
@@ -467,6 +557,10 @@ function makeStyles(C: ThemeColors) {
       fontFamily: 'Heebo_400Regular', fontSize: 13.5, color: C.text,
     },
     inputMulti: { minHeight: 90, textAlignVertical: 'top' },
+    previewBox: {
+      backgroundColor: C.chipBg, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10,
+      fontFamily: 'Heebo_400Regular', fontSize: 13, color: C.text, lineHeight: 19,
+    },
     modalBtns: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 6 },
     cancelBtn: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12 },
     cancelBtnTxt: { fontFamily: 'Heebo_600SemiBold', fontSize: 13.5, color: C.muted },

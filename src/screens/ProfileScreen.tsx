@@ -11,6 +11,7 @@ import { useHistory } from '../context/HistoryContext';
 import { useTheme, ThemeColors } from '../utils/theme';
 import { formatMinutes } from '../utils/format';
 import { badgeForEmail, BADGE_META, ALL_BADGES, UserBadge } from '../constants/badges';
+import { RANK_LABEL, Rank } from '../constants/ranks';
 import AppHeader from '../components/AppHeader';
 
 type Styles = ReturnType<typeof makeStyles>;
@@ -18,7 +19,7 @@ type Styles = ReturnType<typeof makeStyles>;
 export default function ProfileScreen() {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const { t } = useLang();
-  const { profile, updateProfile, deleteAccount, logout } = useProfile();
+  const { profile, rank, updateProfile, deleteAccount, logout } = useProfile();
   const { stats } = useHistory();
   const C = useTheme();
   const s = makeStyles(C);
@@ -112,6 +113,12 @@ export default function ProfileScreen() {
                   </View>
                 );
               })()}
+              {!!rank && (
+                <View style={s.rankChip}>
+                  <Feather name="star" size={12} color="#0ea5e9" />
+                  <Text style={s.rankChipTxt}>{RANK_LABEL[rank as Rank] ?? rank}</Text>
+                </View>
+              )}
               <View style={s.sinceChip}>
                 <Feather name="calendar" size={12} color={C.muted} />
                 <Text style={s.sinceTxt}>
@@ -327,6 +334,11 @@ function makeStyles(C: ThemeColors) {
       borderRadius: 14, paddingHorizontal: 12, paddingVertical: 5, marginTop: 10,
     },
     badgeChipTxt: { fontFamily: 'Heebo_700Bold', fontSize: 12 },
+    rankChip: {
+      flexDirection: 'row', alignItems: 'center', gap: 6,
+      backgroundColor: 'rgba(14,165,233,0.12)', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 5, marginTop: 8,
+    },
+    rankChipTxt: { fontFamily: 'Heebo_700Bold', fontSize: 12, color: '#0ea5e9' },
     sinceChip: {
       flexDirection: 'row', alignItems: 'center', gap: 6,
       backgroundColor: C.chipBg, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 5, marginTop: 8,

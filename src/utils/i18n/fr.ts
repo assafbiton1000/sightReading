@@ -185,6 +185,8 @@ export const fr: T = {
   forumEmpty: 'Pas encore de questions. Publiez la première !',
   deleteBtn: 'Supprimer',
   deletePostConfirm: 'Supprimer cette question ? Toutes ses réponses seront également supprimées.',
+  postConfirm: 'Voulez-vous vraiment publier ce commentaire ?',
+  forumSignInPrompt: 'Connectez-vous pour publier des questions et des réponses.',
   timeJustNow: "à l'instant",
   timeMinAgo: 'il y a {n} min',
   timeHourAgo: 'il y a {n} h',

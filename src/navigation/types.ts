@@ -33,6 +33,8 @@ export type RootStackParamList = {
   Support: undefined;
   Leaderboard: undefined;
   Profile: undefined;
+  /** In-app admin dashboard — reachable only when the signed-in user is is_admin. */
+  Admin: undefined;
   Auth: { mode?: 'signin' | 'signup' } | undefined;
   /** Reached via the reset-password email deep link (App navigates here automatically). */
   ResetPassword: undefined;

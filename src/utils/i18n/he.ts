@@ -185,6 +185,8 @@ export const he: T = {
   forumEmpty: 'עוד אין שאלות בפורום. פרסמו את השאלה הראשונה!',
   deleteBtn: 'מחיקה',
   deletePostConfirm: 'למחוק את השאלה? כל התשובות שלה יימחקו גם.',
+  postConfirm: 'לפרסם את התגובה הזו?',
+  forumSignInPrompt: 'התחברו כדי לפרסם שאלות ותגובות.',
   timeJustNow: 'עכשיו',
   timeMinAgo: 'לפני {n} דק׳',
   timeHourAgo: 'לפני {n} שע׳',

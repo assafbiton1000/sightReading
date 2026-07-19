@@ -185,6 +185,8 @@ export const en: T = {
   forumEmpty: 'No questions yet. Post the first one!',
   deleteBtn: 'Delete',
   deletePostConfirm: 'Delete this question? All its replies will be deleted too.',
+  postConfirm: 'Are you sure you want to post this comment?',
+  forumSignInPrompt: 'Sign in to post questions and replies.',
   timeJustNow: 'just now',
   timeMinAgo: '{n} min ago',
   timeHourAgo: '{n} h ago',

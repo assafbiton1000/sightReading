@@ -185,6 +185,8 @@ export const pt: T = {
   forumEmpty: 'Ainda não há perguntas. Publique a primeira!',
   deleteBtn: 'Excluir',
   deletePostConfirm: 'Excluir esta pergunta? Todas as suas respostas também serão excluídas.',
+  postConfirm: 'Tem certeza de que deseja publicar este comentário?',
+  forumSignInPrompt: 'Faça login para publicar perguntas e respostas.',
   timeJustNow: 'agora',
   timeMinAgo: 'há {n} min',
   timeHourAgo: 'há {n} h',

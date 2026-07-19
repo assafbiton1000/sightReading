@@ -219,6 +219,8 @@ export interface T {
   forumEmpty: string;
   deleteBtn: string;
   deletePostConfirm: string;
+  postConfirm: string;         // confirm-before-posting a comment/reply
+  forumSignInPrompt: string;   // shown when a signed-out user tries to participate
   timeJustNow: string;
   timeMinAgo: string;  // "{n}" placeholder
   timeHourAgo: string; // "{n}" placeholder

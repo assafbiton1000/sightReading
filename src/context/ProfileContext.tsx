@@ -37,6 +37,10 @@ interface ProfileCtx {
   profile: UserProfile | null;
   /** False until real API keys are placed in .env — auth UI shows a setup notice. */
   configured: boolean;
+  /** True only for accounts flagged is_admin in public.profiles — gates the admin screen. */
+  isAdmin: boolean;
+  /** The user's admin-assigned rank from public.profiles; null until loaded / when signed out. */
+  rank: string | null;
   /** Set when the user arrives through a reset-password email link; App navigates to ResetPassword. */
   passwordRecovery: boolean;
   clearPasswordRecovery: () => void;
@@ -100,6 +104,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [passwordRecovery, setPasswordRecovery] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [rank, setRank] = useState<string | null>(null);
 
   // Restore the persisted session on launch and track every auth change after.
   useEffect(() => {
@@ -133,6 +139,26 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       if (ok && isRecovery) setPasswordRecovery(true);
     });
   }, [url]);
+
+  // Resolve the admin flag + rank from public.profiles whenever the signed-in
+  // user changes. Read-your-own-row RLS makes this safe; any failure (signed
+  // out, table not created yet, network) falls back to non-admin / no rank.
+  const userId = session?.user?.id ?? null;
+  useEffect(() => {
+    if (!userId || !isSupabaseConfigured) { setIsAdmin(false); setRank(null); return; }
+    let cancelled = false;
+    supabase
+      .from('profiles')
+      .select('is_admin, rank')
+      .eq('id', userId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelled) return;
+        setIsAdmin(!!data?.is_admin);
+        setRank(typeof data?.rank === 'string' ? data.rank : null);
+      });
+    return () => { cancelled = true; };
+  }, [userId]);
 
   const signUp = useCallback(async (name: string, email: string, password: string): Promise<SignUpResult> => {
     if (!isSupabaseConfigured) return { ok: false, error: 'not-configured' };
@@ -262,6 +288,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         loaded,
         profile: profileFromSession(session),
         configured: isSupabaseConfigured,
+        isAdmin,
+        rank,
         passwordRecovery,
         clearPasswordRecovery,
         signUp,

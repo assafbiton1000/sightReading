@@ -184,6 +184,47 @@ npx eas-cli build --profile production --platform android
 
 ---
 
+## חלק ד׳ — תרומות בתשלום (In-app purchases)
+
+מסך "נקודות בונוס" מאפשר לתרום סכום חופשי (₪5–₪50) דרך **Google Play Billing**.
+המשתמש מקליד סכום, והאפליקציה רוכשת מוצר קבוע במחיר הזה. חשוב: Google Play
+**לא** מאפשר סכום שרירותי — לכן יש **בנק של מוצרים**, אחד לכל סכום. בלי היצירה
+בקונסולה, מסך התרומה יראה "החנות לא זמינה".
+
+### ד.1 יצירת 46 מוצרי In-app
+1. **Play Console → Monetize → Products → In-app products**.
+2. צור מוצר **Managed** לכל סכום: מזהים `support_5`, `support_6`, … `support_50`,
+   כשמחיר כל מוצר = הסכום שלו במטבע ברירת המחדל של החשבון (₪5, ₪6, …, ₪50),
+   וסטטוס **Active**. Google ממיר אוטומטית למטבעות אחרים.
+3. הרשימה המלאה (מזהה + מחיר) ב-`docs/support-products.csv` — אפשר לנסות
+   **Import** ב-Console (Monetize → Products → In-app products), אבל ודא את פורמט
+   ה-CSV המדויק שהקונסולה מבקשת (משתנה לפי אזור/חשבון).
+4. לשינוי הטווח (למשל עד ₪100): עדכן `SUPPORT_MIN_AMOUNT`/`SUPPORT_MAX_AMOUNT`
+   ב-`src/utils/iap.ts` **וגם** את אותו טווח ב-`supabase/functions/verify-purchase`,
+   הרץ מחדש `npx supabase functions deploy verify-purchase`, ובנה בילד חדש.
+
+### ד.2 הרשאת ה-Service Account (אימות רכישות בשרת)
+פונקציית `verify-purchase` מאמתת כל רכישה מול Google Play Developer API לפני
+הענקת תג ה-Patron. ה-service account (`freepace-piano@sightreading-502217…`) צריך:
+1. **Google Play Android Developer API** מופעל ב-GCP project `sightreading-502217`
+   (כנראה כבר מופעל — `eas submit` משתמש בו).
+2. **Play Console → Users and permissions** → אצל ה-service account, הרשאת
+   **"View financial data, orders, and cancellation survey responses"**. הרשאת
+   ה-submit הקיימת לא כוללת צפייה ברכישות — צריך להוסיף את זו במפורש.
+
+(הסוד `GOOGLE_SERVICE_ACCOUNT_B64` כבר הוגדר ב-Supabase; אין צורך לגעת בו.)
+
+### ד.3 בדיקה בלי חיוב אמיתי
+**Play Console → Setup → License testing** → הוסף את האימייל שלך כ-tester. אז
+רכישות במסלול internal לא מחייבות כרטיס אמיתי, וניתן לבדוק את כל הזרימה.
+
+> **הערה — Backend של Supabase**: כל המיגרציות (leaderboard, user_stats, profiles/
+> admin, forum status, rank/badge) וה-edge functions (`admin-users`,
+> `verify-purchase`, `sync-rank`, `forum-moderate`) **כבר פרוסים** לפרויקט החי
+> `yscdnxoeeijjxktkbahk`. אין פעולה ידנית נדרשת בקונסולה עבורם.
+
+---
+
 ## סדר מומלץ
 
 1. Supabase (חלק א׳) — הכי מהיר, פותר את השגיאה שכבר ראית.

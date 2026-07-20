@@ -21,7 +21,7 @@ const ANDROID_PACKAGE = 'com.freepacepiano.app';
 // Only the support-bank products grant Patron — never trust an arbitrary
 // productId from the client. Ids are `support_<n>` for a whole amount in range;
 // keep the range in sync with src/utils/iap.ts (SUPPORT_MIN/MAX_AMOUNT).
-const SUPPORT_MIN_AMOUNT = 5;
+const SUPPORT_MIN_AMOUNT = 1;
 const SUPPORT_MAX_AMOUNT = 50;
 function isAllowedProduct(id: string): boolean {
   const m = /^support_(\d+)$/.exec(id);

@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, TextInput } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -37,6 +37,8 @@ export default function SupportScreen() {
   const { profile, isPatron, verifyPurchase } = useProfile();
   const C = useTheme();
   const s = makeStyles(C);
+
+  const scrollRef = useRef<ScrollView>(null);
 
   const [thanked, setThanked] = useState(false);
   const [adError, setAdError] = useState(false);
@@ -138,7 +140,16 @@ export default function SupportScreen() {
   return (
     <SafeAreaView style={s.safe}>
       <AppHeader />
-      <ScrollView contentContainerStyle={s.container} showsVerticalScrollIndicator={false}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+      <ScrollView
+        ref={scrollRef}
+        contentContainerStyle={s.container}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={s.header}>
           <TouchableOpacity onPress={() => navigation.goBack()}>
             <Text style={s.back}>{t.back}</Text>
@@ -206,6 +217,7 @@ export default function SupportScreen() {
                 <View style={[s.iconWrap, { backgroundColor: 'rgba(236,72,153,0.14)' }]}>
                   <Feather name="heart" size={20} color="#ec4899" />
                 </View>
+                <Text style={s.currencySign}>$</Text>
                 <TextInput
                   style={s.amountInput}
                   value={amountText}
@@ -215,6 +227,8 @@ export default function SupportScreen() {
                   placeholderTextColor={C.muted}
                   maxLength={3}
                   editable={!purchasing}
+                  // Keep the input (and Support button) above the number pad.
+                  onFocus={() => setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100)}
                 />
               </View>
 
@@ -255,6 +269,7 @@ export default function SupportScreen() {
           )}
         </View>
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -305,10 +320,11 @@ function makeStyles(C: ThemeColors) {
 
     amountLabel: { fontFamily: 'Heebo_600SemiBold', fontSize: 13, color: C.muted, marginBottom: 8 },
     amountRow: {
-      flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: C.card,
+      flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: C.card,
       borderRadius: 18, padding: 14,
       shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 2,
     },
+    currencySign: { fontFamily: 'Heebo_800ExtraBold', fontSize: 22, color: C.text },
     amountInput: {
       flex: 1, fontFamily: 'Heebo_800ExtraBold', fontSize: 22, color: C.text,
       paddingVertical: 6, textAlign: 'left',

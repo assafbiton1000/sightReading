@@ -5,24 +5,21 @@ Google Cloud, AdMob) ולא ניתנים לביצוע אוטומטי דרך הק
 
 ---
 
-## חלק ג׳ — AdMob (מסך "Support Me" — פרסומת תמיכה מרצון)
+## חלק ג׳ — AdMob (מסך "Support Me" — פרסומת תמיכה מרצון) ✅ הושלם
 
-כרגע המסך משתמש במזהי TEST הרשמיים של Google (`app.json` + `TestIds.REWARDED`
-ב-`SupportScreen.tsx`) — מציגים פרסומות אמיתיות אבל לא מייצרים הכנסה. לפני
-הפצה בפועל:
+המזהים האמיתיים כבר בקוד (26 ביולי 2026):
+- `app.json` → `androidAppId` = `ca-app-pub-0087664103437143~3146115034`
+- `src/constants/support.ts` → `REWARDED_AD_UNIT_ID` = `ca-app-pub-0087664103437143/3748750265`
 
-1. גלוש ל-<https://admob.google.com> → הרשמה/כניסה עם חשבון Google.
-2. **Apps → Add app** → Android → תבחר אם האפליקציה כבר בחנות או לא (עדיין לא).
-3. תמלא את פרטי האפליקציה → תקבל **App ID** (בפורמט `ca-app-pub-XXXX~YYYY`).
-4. באותו אפליקציה: **Ad units → Add ad unit → Rewarded** → תקבל **Ad unit ID**
-   (בפורמט `ca-app-pub-XXXX/ZZZZ`, שונה מה-App ID).
-5. עדכן שני מקומות בקוד:
-   - `app.json` → `plugins → react-native-google-mobile-ads → androidAppId`
-     (והחלף גם `iosAppId` אם תפרסם ל-iOS)
-   - `src/constants/support.ts` → `REWARDED_AD_UNIT_ID`
-6. שלח לי את שני הערכים החדשים ואני אעדכן את הקבצים.
-7. **בילד חדש נדרש** (מודול native) — `npx eas-cli build --profile preview --platform android`
-   כדי לבדוק בפועל שהמזהים האמיתיים עובדים, לפני שמכניסים ל-production.
+נשאר לוודא:
+1. **בילד חדש נדרש** — ה-App ID נצרב ב-`AndroidManifest` בזמן הבנייה, OTA לא מספיק.
+2. `iosAppId` עדיין מזהה TEST של Google — לא רלוונטי כל עוד מפיצים ל-Android בלבד.
+   לפרסום ל-iOS צריך ליצור אפליקציה נפרדת ב-AdMob ולקבל App ID משלה.
+3. חשבון AdMob חדש לרוב לא מגיש פרסומות אמיתיות עד שהאפליקציה מפורסמת בחנות —
+   fill rate אפס בשלב ה-closed testing זה תקין ולא באג.
+4. **לא ללחוץ על פרסומות אמיתיות בעצמך** — AdMob חוסמת חשבונות על כך. לבדיקות
+   הוסף את המכשיר שלך כ-test device ב-AdMob, או החזר זמנית את `REWARDED_AD_UNIT_ID`
+   ל-`null` (נופל חזרה ל-`TestIds.REWARDED`).
 
 ---
 

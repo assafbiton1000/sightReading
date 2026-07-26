@@ -15,7 +15,7 @@
 <body>
 
 <h1>Privacy Policy for FreePace Piano</h1>
-<p class="updated">Last updated: July 13, 2026</p>
+<p class="updated">Last updated: July 26, 2026</p>
 
 <p>FreePace Piano ("the app", "we", "our") is a piano sight-reading practice app.
 This policy explains what data the app accesses, how it is used, and what choices you have.</p>
@@ -30,8 +30,9 @@ detect a pitch, and is then discarded. We (and no third party) ever receive or h
 alternative input method that requires no microphone at all.</p>
 
 <h2>2. Account Information (optional)</h2>
-<p>Creating an account is optional. If you choose to sign up (by email/password or "Continue with Google"),
-we collect and store the following on our backend infrastructure (provided by Supabase):</p>
+<p>Creating an account is optional — the app is fully usable as a guest. If you choose to sign up
+(by email/password or "Continue with Google"), we collect and store the following on our backend
+infrastructure (provided by Supabase):</p>
 <ul>
   <li>Your email address</li>
   <li>Your display name</li>
@@ -43,40 +44,83 @@ email for marketing and do not share it with advertisers.</p>
 <p>If you sign in with Google, Google shares your email address and basic profile information with our
 authentication provider under Google's own privacy policy; we do not receive your Google password.</p>
 
-<h2>3. Data Stored Only on Your Device</h2>
-<p>Your practice history, streaks, accuracy statistics, and app settings (difficulty level, sound,
-language, dark mode, etc.) are stored locally on your device only and are never uploaded to any server.
-If you sign out or delete your account, this local data remains on your device and is only removed if
-you uninstall the app or clear its storage.</p>
+<h2>3. Practice Data</h2>
+<p>Your practice history, streaks, accuracy statistics, points and app settings (difficulty level, sound,
+language, dark mode, etc.) are always stored locally on your device.</p>
+<p>If you are <strong>signed in to an account</strong>, a copy of your points and practice session history is
+also backed up to our backend so that it survives reinstalling the app or moving to a new device. This
+backup is private to you: our database rules allow only your own account to read or write it. If you use
+the app as a guest, nothing is uploaded and your practice data stays on your device only.</p>
+<p>Your app settings and your daily reminder preference are never uploaded.</p>
 
-<h2>4. Notifications</h2>
+<h2>4. Leaderboard and Community Forum (optional, publicly visible)</h2>
+<p>If you are signed in, two features publish content to other users of the app:</p>
+<ul>
+  <li><strong>Leaderboard</strong> — your display name and points score are visible to other signed-in
+      users of the app. Your email address is never shown.</li>
+  <li><strong>Community forum</strong> — posts and comments you write are stored on our backend and shown
+      to other users alongside your display name. Posts are reviewed by a moderator before publication.
+      You can permanently delete your own posts and comments at any time from within the forum.</li>
+</ul>
+<p>Do not post personal information you do not want to be public. If you never use these features,
+nothing of yours appears in them.</p>
+
+<h2>5. Advertising</h2>
+<p>The app includes an optional <strong>rewarded advertisement</strong> on the "Support" screen, provided by
+<strong>Google AdMob</strong>. It is never shown automatically — it plays only if you explicitly choose to
+watch it in order to support the app.</p>
+<p>To serve ads, the AdMob SDK collects device identifiers (including the Android advertising ID),
+IP address and ad-interaction data, and transmits them to Google. This processing is governed by
+<a href="https://policies.google.com/technologies/partner-sites">Google's Privacy &amp; Terms</a>. You can limit
+ad personalisation or reset your advertising ID in Android Settings &rarr; Privacy &rarr; Ads. We do not
+receive your identifiers and do not combine ad data with your account.</p>
+
+<h2>6. Voluntary Donations (in-app purchases)</h2>
+<p>The app lets you make an optional donation to support development, processed entirely through
+<strong>Google Play Billing</strong>. We never see or receive your payment card, billing address or any other
+payment details — Google handles the transaction. Our backend receives only the purchase token issued by
+Google, which it verifies against the Google Play Developer API in order to confirm the donation is
+genuine and grant the supporter badge on your profile. Records of the transaction itself are held by
+Google Play under Google's own policies.</p>
+
+<h2>7. Notifications</h2>
 <p>If you enable the daily practice reminder, it is scheduled locally on your device using your device's
 notification system. No data about your reminder preferences leaves your device.</p>
 
-<h2>5. Data Sharing</h2>
-<p>We do not sell your data. We do not use advertising networks or third-party analytics/tracking SDKs
-in this app. The only third-party service involved is Supabase, which securely hosts the optional account
-system described above, and Google, solely if you choose "Continue with Google" to sign in.</p>
+<h2>8. Data Sharing</h2>
+<p>We do not sell your data. Your account details, practice data and forum content are not sold, rented
+or shared for marketing purposes. The third parties involved in the app are:</p>
+<ul>
+  <li><strong>Supabase</strong> — our hosting provider, which securely stores the optional account system,
+      cloud practice backup, leaderboard and forum described above, acting on our instructions.</li>
+  <li><strong>Google</strong> — for AdMob advertising (section 5), Google Play Billing (section 6), and, only
+      if you choose "Continue with Google", for sign-in (section 2).</li>
+</ul>
 
-<h2>6. Account Deletion</h2>
+<h2>9. Account and Data Deletion</h2>
 <p>You can permanently delete your account at any time from the Profile screen. This immediately and
-permanently removes your account record (email, name, password) from our backend. It does not affect
-practice data already stored locally on your device.</p>
+permanently removes your account record (email, name, password), your profile, your leaderboard entry,
+your cloud practice backup and your forum posts from our backend. It does not affect practice data
+already stored locally on your device, which you can remove by uninstalling the app.</p>
+<p>You can also delete individual forum posts without deleting your account. Full instructions,
+including how to request deletion by email if you can no longer access the app, are on our
+<a href="delete-account.html">account deletion page</a>.</p>
 
-<h2>7. Children's Privacy</h2>
+<h2>10. Children's Privacy</h2>
 <p>FreePace Piano is not directed at children under 13 and we do not knowingly collect personal
 information from children under 13. Account creation is optional and requires an email address.</p>
 
-<h2>8. Security</h2>
-<p>Account data is stored and transmitted using industry-standard encryption provided by our backend
-infrastructure provider (Supabase). No method of transmission or storage is 100% secure, but we take
-reasonable measures to protect your information.</p>
+<h2>11. Security</h2>
+<p>Account data is transmitted over encrypted connections (HTTPS/TLS) and stored using industry-standard
+encryption provided by our backend infrastructure provider (Supabase). Access to your private data is
+enforced at the database level by row-level security rules. No method of transmission or storage is
+100% secure, but we take reasonable measures to protect your information.</p>
 
-<h2>9. Changes to This Policy</h2>
+<h2>12. Changes to This Policy</h2>
 <p>We may update this policy from time to time. Changes will be posted on this page with an updated
 "Last updated" date.</p>
 
-<h2>10. Contact Us</h2>
+<h2>13. Contact Us</h2>
 <p>If you have questions about this policy or your data, contact us at:
 <a href="mailto:assafbiton@gmail.com">assafbiton@gmail.com</a></p>
 

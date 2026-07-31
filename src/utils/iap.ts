@@ -10,7 +10,7 @@ import { Product } from 'expo-iap';
 // live in docs/support-products.csv. The verify-purchase Edge Function
 // allow-lists exactly this id pattern + range.
 export const SUPPORT_MIN_AMOUNT = 1;
-export const SUPPORT_MAX_AMOUNT = 50;
+export const SUPPORT_MAX_AMOUNT = 100;
 
 export function supportProductId(amount: number): string {
   return `support_${amount}`;

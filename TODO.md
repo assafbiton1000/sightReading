@@ -1,5 +1,5 @@
 # TODO — קריאת תווים לפסנתר (Sight Reading App)
-> עודכן לאחרונה: 2026-07-16 (עדכון אחרון: מערכת נקודות + Leaderboard, ומסך "Support Me" עם AdMob ו-Buy Me a Coffee)
+> עודכן לאחרונה: 2026-07-30 (עדכון אחרון: יצירת 50 מוצרי In-app לתרומות מול ה-Monetization API החדש של גוגל)
 
 ## ✅ מה נבנה עד כה
 
@@ -79,14 +79,18 @@
 - [x] **`eas.json` חסר** — נוצר עם פרופילי `development`/`preview`/`production` (`production` בונה `.aab` דרך `android.buildType: "app-bundle"`, `preview` בונה `.apk` להתקנה ישירה). הפרויקט קושר בפועל לחשבון EAS (`app.json` מכיל `extra.eas.projectId` ו-`owner: "assafbiton"`)
 - [x] **חשבון Google Play Console** — נרשם, ואימות הזהות של המפתח הושלם (2026-07-13)
 - [x] **מדיניות פרטיות** — מאורחת בפועל דרך GitHub Pages: **https://assafbiton1000.github.io/sightReading/privacy-policy.html** (מקור: `docs/privacy-policy.html`, נדלק 2026-07-13). נשאר רק להדביק את הקישור בטופס "App content → Privacy policy" בקונסולה
-- [ ] **טופס Data Safety בקונסולה** — הצהרה חובה על אופן השימוש בנתוני המיקרופון
-- [ ] **הצדקת הרשאה רגישה (RECORD_AUDIO)** — טופס "App content" בקונסולה דורש הסבר למה האפליקציה צריכה גישה למיקרופון
-- [ ] **חומרי Store listing** — **טיוטת טקסט מוכנה** ב-`docs/store-listing.md` (כותרת, תיאור קצר, תיאור מלא — אנגלית). עדיין חסר: feature graphic (1024×500) ולפחות 2 צילומי מסך (אלה מדיה חזותית, לא ניתן להפיק אוטומטית)
-- [ ] **מסלול Closed Testing** — חשבונות מפתח אישיים חדשים חייבים ~12–20 בודקים במשך 14 יום לפני גישה לפרודקשן
+- [x] **טופס Data Safety בקונסולה** — הצהרה על אופן השימוש בנתוני המיקרופון הוגשה
+- [x] **הצדקת הרשאה רגישה (RECORD_AUDIO)** — טופס "App content" הוגש
+- [x] **חומרי Store listing** — טקסט (`docs/store-listing.md`) + feature graphic + צילומי מסך הועלו
+- [ ] **מסלול Closed Testing** — **בתהליך (2026-07-30)**: המסלול מוגדר בקונסולה (מדינות/אזורים נבחרו, בודקים הוזמנו, release נוצר — 3/5 מהשלבים בקונסולה). עדיין חסר: אישור וסקירה של ה-release, שליחה לבדיקת גוגל, ובעיקר — **0 בודקים opted-in** מתוך 12 נדרשים (המשתמש מגייס בודקים כרגע, לוקח זמן). מספר ימים הרישום (14) מתחיל להיספר רק אחרי שה-12 הראשונים מצטרפים בפועל
+  - **חסום זמנית**: `.aab` ל-production עוד לא קיים — `npx eas-cli build --profile production --platform android` נכשל (2026-07-30) כי מכסת הבילדים החינמית ל-Android אצל EAS נוצלה החודש; מתאפסת ~2026-08-01. לנסות שוב אז (או לשדרג תוכנית ב-EAS לבילד מיידי)
 
 ### חשוב, לא חוסם
 - [x] **ניהול versionCode** — `eas.json` מוגדר עם `cli.appVersionSource: "remote"` (הגישה המומלצת מ-EAS CLI 12+) ו-`autoIncrement: true` בפרופיל `production` — EAS מנהל ומעלה את מספר הגרסה אוטומטית בשרת, בלי צורך במעקב ידני ב-`app.json`
 - [ ] **שאלון דירוג תוכן (Content rating)** — קצר, לא בעיה מהותית, רק צריך למלא בקונסולה
+- [x] **100 מוצרי In-app לתרומות (`support_1`...`support_100`)** — נוצרו והופעלו (ACTIVE) בפועל ב-Play Console דרך `scripts/create_support_products.py` (2026-07-30, הורחב מ-$50 ל-$100 באותו יום). **חשוב**: ה-API הישן (`inappproducts.insert`) הפסיק לעבוד ("Please migrate to the new publishing API"), וגם ה-CSV import בקונסולה הוסר ע"י גוגל במאי 2025 — `docs/support-products.csv` וההנחיה המתאימה ב-`docs/LAUNCH_CHECKLIST.md` חלק ד.1 מיושנים. הסקריפט עודכן לעבוד מול ה-Monetization API החדש (`convertRegionPrices` + `onetimeproducts.patch` + `purchaseOptions.batchUpdateStates`). הטווח מסונכרן בשלושה מקומות: `SUPPORT_MAX_AMOUNT` ב-`src/utils/iap.ts`, אותו קבוע ב-`supabase/functions/verify-purchase/index.ts` (נפרס בפועל), ו-`MAX_AMOUNT` בסקריפט עצמו. **דורש בילד חדש** כדי שהטווח המורחב יגיע ללקוח — ייכלל בבילד ה-production הבא
+- [x] **הרשאת "View financial data, orders, and cancellation survey responses" ל-service account** (ד.2) — כבר הייתה מוענקת ב-Play Console → Users and permissions (אומת ידנית)
+- [x] **License tester + בדיקת רכישה מקצה לקצה** (ד.3) — האימייל כבר ברשימת ה-testers; רכישה אמיתית של `support_1` דרך Internal testing (מותקן מה-Play Store, לא APK ישיר) בוצעה בהצלחה ותג ה-Patron הוענק (2026-07-30). **חלק ד׳ (תרומות) הושלם במלואו**
 
 ---
 

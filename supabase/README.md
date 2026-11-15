@@ -21,13 +21,13 @@ when the project was created (Project Settings → Database can reset it).
 ## Applying migrations
 
 ```bash
-npx supabase db push       # runs every un-applied file in migrations/ against the linked project
+npx supabase db push --remote   # runs every un-applied file in migrations/ against the linked project
 ```
 
 To preview what would run without applying it:
 
 ```bash
-npx supabase db push --dry-run
+npx supabase db push --remote --dry-run
 ```
 
 ## Migrations

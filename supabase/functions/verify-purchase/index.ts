@@ -130,6 +130,17 @@ Deno.serve(async (req: Request) => {
     // purchaseState: 0 = purchased, 1 = canceled, 2 = pending.
     if (purchase.purchaseState !== 0) return json({ error: 'not_purchased', state: purchase.purchaseState }, 402);
 
+    // One token = one account. A retry by the same user is fine (idempotent).
+    const { error: claimErr } = await admin
+      .from('used_purchase_tokens')
+      .insert({ purchase_token: purchaseToken, user_id: userData.user.id, product_id: productId });
+    if (claimErr) {
+      if (claimErr.code !== '23505') return json({ error: 'claim_failed', detail: claimErr.message }, 500);
+      const { data: claimed } = await admin
+        .from('used_purchase_tokens').select('user_id').eq('purchase_token', purchaseToken).maybeSingle();
+      if (claimed?.user_id !== userData.user.id) return json({ error: 'token_already_used' }, 409);
+    }
+
     const now = new Date().toISOString();
     const { error } = await admin
       .from('profiles')

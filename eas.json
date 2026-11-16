@@ -22,6 +22,15 @@
       "android": {
         "buildType": "app-bundle"
       }
+    },
+    "deviceCheck101": {
+      "extends": "production",
+      "autoIncrement": false,
+      "distribution": "internal",
+      "channel": "device-check-101",
+      "android": {
+        "buildType": "apk"
+      }
     }
   },
   "submit": {

@@ -9,7 +9,8 @@ export interface AboutContent {
 }
 
 export const DEVELOPER_EMAIL = 'assafbiton@gmail.com';
-export const APP_VERSION = '1.0.0';
+export const APP_VERSION = '1.0.1';
+export const PRIVACY_POLICY_URL = 'https://assafbiton1000.github.io/sightReading/privacy-policy.html';
 
 // Like the FAQ, long-form content is maintained in Hebrew and English only;
 // other languages fall back to English.

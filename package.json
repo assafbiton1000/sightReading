@@ -45,7 +45,8 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "update:prod": "eas update --channel production --platform android"
+    "update:prod": "eas update --channel production --platform android",
+    "test": "node --test \"scripts/tests/*.test.mjs\""
   },
   "private": true
 }

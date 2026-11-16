@@ -3,7 +3,7 @@
     "name": "FreePace Piano",
     "slug": "sightreading",
     "scheme": "sightreading",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -45,7 +45,8 @@
         "react-native-google-mobile-ads",
         {
           "androidAppId": "ca-app-pub-0087664103437143~3146115034",
-          "iosAppId": "ca-app-pub-3940256099942544~1458002511"
+          "iosAppId": "ca-app-pub-3940256099942544~1458002511",
+          "delayAppMeasurementInit": true
         }
       ],
       "expo-iap",
@@ -54,7 +55,8 @@
         {
           "android": {
             "enableProguardInReleaseBuilds": true,
-            "enableShrinkResourcesInReleaseBuilds": true
+            "enableShrinkResourcesInReleaseBuilds": true,
+            "extraProguardRules": "-keep class com.google.android.gms.internal.consent_sdk.** { *; }"
           }
         }
       ]

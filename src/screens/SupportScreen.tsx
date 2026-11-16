@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -15,6 +15,8 @@ import { useHistory, POINTS_PER_AD } from '../context/HistoryContext';
 import { useProfile } from '../context/ProfileContext';
 import { useTheme, ThemeColors } from '../utils/theme';
 import { REWARDED_AD_UNIT_ID } from '../constants/support';
+import { adsGate, useAdsGate } from '../utils/adsConsent';
+import type { AdsPhase } from '../utils/adsGate';
 import {
   SUPPORT_PRODUCT_IDS, SUPPORT_MIN_AMOUNT, SUPPORT_MAX_AMOUNT,
   supportProductId, isValidSupportAmount, findSupportProduct,
@@ -41,9 +43,11 @@ export default function SupportScreen() {
   const scrollRef = useRef<ScrollView>(null);
 
   const [thanked, setThanked] = useState(false);
-  const [adError, setAdError] = useState(false);
-  const adUnitId = REWARDED_AD_UNIT_ID ?? TestIds.REWARDED;
-  const rewarded = useRewardedAd(adUnitId);
+  const ads = useAdsGate();
+  // Retries consent/init if an earlier attempt this launch failed; shares the
+  // in-flight run with App's start-up call (never two consent forms).
+  useEffect(() => { adsGate.ensureReady(); }, []);
+  const onEarned = useCallback(() => { setThanked(true); recordAdWatch(); }, [recordAdWatch]);
 
   // ---- In-app purchase (free-choice support amount) ----
   const [amountText, setAmountText] = useState('');
@@ -106,37 +110,6 @@ export default function SupportScreen() {
     }
   }
 
-  useEffect(() => {
-    if (rewarded.isEarnedReward) {
-      setThanked(true);
-      recordAdWatch();
-    }
-  }, [rewarded.isEarnedReward, recordAdWatch]);
-
-  useEffect(() => {
-    if (rewarded.error) setAdError(true);
-  }, [rewarded.error]);
-
-  useEffect(() => {
-    rewarded.load();
-  }, [rewarded.load]);
-
-  // Load the next ad as soon as one closes, so watching (and earning points
-  // for) more than one in a visit doesn't need leaving and re-entering the screen.
-  useEffect(() => {
-    if (rewarded.isClosed) rewarded.load();
-  }, [rewarded.isClosed, rewarded.load]);
-
-  function handleWatchAd() {
-    setAdError(false);
-    if (rewarded.isLoaded) {
-      rewarded.show();
-    } else {
-      setAdError(true);
-      rewarded.load();
-    }
-  }
-
   return (
     <SafeAreaView style={s.safe}>
       <AppHeader />
@@ -159,22 +132,29 @@ export default function SupportScreen() {
 
         <Text style={s.intro}>{t.supportIntro}</Text>
 
-        {/* Watch an ad → earn points */}
-        <TouchableOpacity
-          style={s.card}
-          onPress={handleWatchAd}
-          disabled={rewarded.isShowing}
-          activeOpacity={0.85}
-        >
-          <View style={[s.iconWrap, { backgroundColor: 'rgba(245,158,11,0.14)' }]}>
-            <Feather name="gift" size={22} color="#f59e0b" />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={s.cardTitle}>{t.watchAdLabel}</Text>
-            <Text style={s.cardDesc}>{!rewarded.isLoaded ? t.watchAdLoading : t.watchAdDesc}</Text>
-          </View>
-          {!rewarded.isLoaded && <ActivityIndicator size="small" color={C.muted} />}
-        </TouchableOpacity>
+        {/* Watch an ad → earn points. Keyed on the consent generation: a privacy
+            choice change unmounts it, discarding any ad loaded under the old choice. */}
+        <RewardedAdCard
+          key={ads.generation}
+          generation={ads.generation}
+          allowed={adsGate.canLoad(ads.generation)}
+          phase={ads.formOpen ? 'checking' : ads.phase}
+          onEarned={onEarned}
+          hideError={thanked}
+          s={s}
+        />
+        {ads.privacyOptionsRequired && (
+          <TouchableOpacity
+            style={s.privacyBtn}
+            onPress={() => adsGate.openPrivacyOptions()}
+            disabled={ads.formOpen}
+            accessibilityRole="button"
+            activeOpacity={0.8}
+          >
+            <Feather name="shield" size={14} color={C.primary} />
+            <Text style={s.privacyBtnTxt}>{t.adsPrivacyOptionsBtn}</Text>
+          </TouchableOpacity>
+        )}
 
         {thanked && (
           <View style={s.thanksBox}>
@@ -185,10 +165,6 @@ export default function SupportScreen() {
             </View>
           </View>
         )}
-        {adError && !thanked && (
-          <Text style={s.errorTxt}>{t.watchAdError}</Text>
-        )}
-
         {/* ---- Support with a free-choice amount (Google Play in-app purchase) ---- */}
         <View style={s.tierSection}>
           <Text style={s.sectionTitle}>{t.supportTierTitle}</Text>
@@ -274,6 +250,82 @@ export default function SupportScreen() {
   );
 }
 
+// The only place that touches the rewarded ad. Until the consent gate allows
+// ads, the hook gets a null unit id, so no ad object exists and load()/show()
+// are no-ops (wrapper 16: createForAdRequest itself makes no request; load()
+// does). Every load/show also re-checks the gate live for this generation.
+function RewardedAdCard({ generation, allowed, phase, onEarned, hideError, s }: {
+  generation: number;
+  allowed: boolean;
+  phase: AdsPhase;
+  onEarned: () => void;
+  hideError: boolean;
+  s: Styles;
+}) {
+  const { t } = useLang();
+  const C = useTheme();
+  // Dev builds always use Google's test unit, so local testing never serves live ads.
+  const adUnitId = __DEV__ ? TestIds.REWARDED : (REWARDED_AD_UNIT_ID ?? TestIds.REWARDED);
+  const { load, show, isLoaded, isClosed, isEarnedReward, error, isShowing } = useRewardedAd(allowed ? adUnitId : null);
+  const [adError, setAdError] = useState(false);
+  const onEarnedRef = useRef(onEarned);
+  onEarnedRef.current = onEarned;
+
+  const gatedLoad = useCallback(() => {
+    if (adsGate.canLoad(generation)) load();
+  }, [load, generation]);
+
+  // Points only on the SDK's EARNED_REWARD event.
+  useEffect(() => { if (isEarnedReward) onEarnedRef.current(); }, [isEarnedReward]);
+  useEffect(() => { if (error) setAdError(true); }, [error]);
+  useEffect(() => { gatedLoad(); }, [gatedLoad]);
+  // Load the next ad as soon as one closes, so watching (and earning points
+  // for) more than one in a visit doesn't need leaving and re-entering the screen.
+  useEffect(() => { if (isClosed) gatedLoad(); }, [isClosed, gatedLoad]);
+
+  function handlePress() {
+    if (phase === 'error') { adsGate.ensureReady(); return; } // user-initiated retry
+    if (phase !== 'ready') return;
+    setAdError(false);
+    if (isLoaded && adsGate.canLoad(generation)) {
+      show();
+    } else {
+      setAdError(true);
+      gatedLoad();
+    }
+  }
+
+  const desc = phase === 'ready' ? (isLoaded ? t.watchAdDesc : t.watchAdLoading)
+    : phase === 'blocked' ? t.adsBlocked
+    : phase === 'error' ? t.adsCheckFailed
+    : t.adsChecking;
+  const busy = phase === 'idle' || phase === 'checking' || (phase === 'ready' && !isLoaded);
+
+  return (
+    <>
+      <TouchableOpacity
+        style={s.card}
+        onPress={handlePress}
+        disabled={isShowing || phase === 'blocked'}
+        accessibilityRole="button"
+        activeOpacity={0.85}
+      >
+        <View style={[s.iconWrap, { backgroundColor: 'rgba(245,158,11,0.14)' }]}>
+          <Feather name="gift" size={22} color="#f59e0b" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={s.cardTitle}>{t.watchAdLabel}</Text>
+          <Text style={s.cardDesc}>{desc}</Text>
+        </View>
+        {busy && <ActivityIndicator size="small" color={C.muted} />}
+      </TouchableOpacity>
+      {adError && !hideError && phase === 'ready' && (
+        <Text style={s.errorTxt}>{t.watchAdError}</Text>
+      )}
+    </>
+  );
+}
+
 function makeStyles(C: ThemeColors) {
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: C.bg },
@@ -300,6 +352,8 @@ function makeStyles(C: ThemeColors) {
     thanksTxt: { fontFamily: 'Heebo_700Bold', fontSize: 14, color: C.text },
     pointsEarnedTxt: { fontFamily: 'Heebo_600SemiBold', fontSize: 12.5, color: '#f59e0b', marginTop: 2 },
     errorTxt: { fontFamily: 'Heebo_500Medium', fontSize: 13, color: '#ef4444', textAlign: 'center', marginTop: 4 },
+    privacyBtn: { flexDirection: 'row', alignItems: 'center', alignSelf: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 12 },
+    privacyBtnTxt: { fontFamily: 'Heebo_600SemiBold', fontSize: 13, color: C.primary },
 
     tierSection: { marginTop: 28 },
     sectionTitle: { fontFamily: 'Heebo_800ExtraBold', fontSize: 17, color: C.text, marginBottom: 6 },

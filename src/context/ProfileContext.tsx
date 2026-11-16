@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Platform } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
@@ -6,6 +6,7 @@ import { makeRedirectUri } from 'expo-auth-session';
 import * as QueryParams from 'expo-auth-session/build/QueryParams';
 import type { AuthError, Session } from '@supabase/supabase-js';
 import { supabase, isSupabaseConfigured } from '../utils/supabase';
+import { createAccountSession, flagsFor } from '../utils/accountSession';
 
 // Closes the web OAuth popup once the provider redirects back (no-op on native).
 WebBrowser.maybeCompleteAuthSession();
@@ -46,7 +47,8 @@ interface ProfileCtx {
   /** Verifies a Google Play support purchase server-side and, if valid, grants the Patron badge. Returns success. */
   verifyPurchase: (productId: string, purchaseToken: string) => Promise<boolean>;
   /** Reports the rank earned from local practice; the server raises the stored rank to the higher of earned / admin-set. */
-  syncRank: (earnedRankIndex: number) => Promise<void>;
+  /** true only if sync-rank confirmed the rank for the account that is still signed in. */
+  syncRank: (earnedRankIndex: number) => Promise<boolean>;
   /** Set when the user arrives through a reset-password email link; App navigates to ResetPassword. */
   passwordRecovery: boolean;
   clearPasswordRecovery: () => void;
@@ -110,9 +112,6 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [passwordRecovery, setPasswordRecovery] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [isPatron, setIsPatron] = useState(false);
-  const [rank, setRank] = useState<string | null>(null);
 
   // Restore the persisted session on launch and track every auth change after.
   useEffect(() => {
@@ -150,23 +149,35 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   // Resolve the admin/patron flags + rank from public.profiles whenever the
   // signed-in user changes. Read-your-own-row RLS makes this safe; any failure
   // (signed out, table not created yet, network) falls back to the defaults.
+  // Flags are bound to the auth session they were loaded for (utils/accountSession.ts):
+  // a new user id — or signing out and back in as the same one — starts a new
+  // epoch, and replies from an older one are dropped. Until this session's row
+  // arrives the flags read as defaults / rank null, never the previous account's.
   const userId = session?.user?.id ?? null;
+  const [acct] = useState(createAccountSession);
+  const acctSnap = useSyncExternalStore(acct.subscribe, acct.getSnapshot);
+  useLayoutEffect(() => { acct.setUser(userId); }, [acct, userId]);
+  const flags = flagsFor(acctSnap, userId);
+  const isAdmin = !!flags?.isAdmin;
+  const isPatron = !!flags?.isPatron;
+  const rank = flags?.rank ?? null;
   useEffect(() => {
-    if (!userId || !isSupabaseConfigured) { setIsAdmin(false); setIsPatron(false); setRank(null); return; }
-    let cancelled = false;
+    if (!userId || !isSupabaseConfigured) return;
+    const tok = acct.token();
+    if (!tok || tok.uid !== userId) return;
     supabase
       .from('profiles')
       .select('is_admin, is_patron, rank')
       .eq('id', userId)
       .maybeSingle()
       .then(({ data }) => {
-        if (cancelled) return;
-        setIsAdmin(!!data?.is_admin);
-        setIsPatron(!!data?.is_patron);
-        setRank(typeof data?.rank === 'string' ? data.rank : null);
+        acct.apply(tok, {
+          isAdmin: !!data?.is_admin,
+          isPatron: !!data?.is_patron,
+          rank: typeof data?.rank === 'string' ? data.rank : null,
+        });
       });
-    return () => { cancelled = true; };
-  }, [userId]);
+  }, [acct, userId]); // runs after the layout effect above, so the token is this session's
 
   // Called by the Support screen after a successful in-app purchase. The
   // verify-purchase Edge Function checks the token against the Google Play
@@ -175,30 +186,37 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   // appears immediately.
   const verifyPurchase = useCallback(async (productId: string, purchaseToken: string): Promise<boolean> => {
     if (!isSupabaseConfigured || !userId) return false;
+    const tok = acct.token();
     try {
       const { data, error } = await supabase.functions.invoke('verify-purchase', {
         body: { productId, purchaseToken },
       });
       if (error || !data?.ok) return false;
-      setIsPatron(true);
+      acct.apply(tok, { isPatron: true }); // no-op if the session changed meanwhile
       return true;
     } catch {
       return false;
     }
-  }, [userId]);
+  }, [userId, acct]);
 
   // Reports the rank earned from local sight-reading practice. The sync-rank
   // function stores max(current, earned) — never lowering an admin-set higher
   // rank — and returns the effective rank, which we reflect locally.
-  const syncRank = useCallback(async (earnedRankIndex: number): Promise<void> => {
-    if (!isSupabaseConfigured || !userId) return;
+  // Returns true only on a confirmed response for the account that is still
+  // signed in; a late response for a previous account changes nothing here.
+  const syncRank = useCallback(async (earnedRankIndex: number): Promise<boolean> => {
+    if (!isSupabaseConfigured || !userId) return false;
+    const tok = acct.token();
+    if (!tok || tok.uid !== userId) return false;
     try {
       const { data, error } = await supabase.functions.invoke('sync-rank', { body: { rankIndex: earnedRankIndex } });
-      if (!error && typeof data?.rank === 'string') setRank(data.rank);
+      if (error || typeof data?.rank !== 'string') return false;
+      // Applied (and reported as success) only for the same session it was sent in.
+      return acct.apply(tok, { rank: data.rank });
     } catch {
-      // Non-fatal: rank is cosmetic and will re-sync on the next qualifying session.
+      return false; // non-fatal: retried on the next practice activity
     }
-  }, [userId]);
+  }, [userId, acct]);
 
   const signUp = useCallback(async (name: string, email: string, password: string): Promise<SignUpResult> => {
     if (!isSupabaseConfigured) return { ok: false, error: 'not-configured' };

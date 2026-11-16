@@ -32,7 +32,9 @@ import SupportScreen from './src/screens/SupportScreen';
 import LeaderboardScreen from './src/screens/LeaderboardScreen';
 import AdminScreen from './src/screens/AdminScreen';
 import ForumModerationScreen from './src/screens/ForumModerationScreen';
-import mobileAds from 'react-native-google-mobile-ads';
+import { adsGate } from './src/utils/adsConsent';
+import { chooseLeaderboard, useLeaderboardChoice } from './src/utils/leaderboardConsent';
+import LeaderboardConsentModal from './src/components/LeaderboardConsentModal';
 import { LangProvider, useLang } from './src/context/LangContext';
 import { SettingsProvider, useSettings } from './src/context/SettingsContext';
 import { HistoryProvider } from './src/context/HistoryContext';
@@ -47,7 +49,7 @@ const Stack = createStackNavigator<RootStackParamList>();
 function AppContent() {
   const { settings, loaded } = useSettings();
   const { t, lang } = useLang();
-  const { passwordRecovery } = useProfile();
+  const { passwordRecovery, profile } = useProfile();
   const navigationRef = useNavigationContainerRef<RootStackParamList>();
   const [navReady, setNavReady] = useState(false);
   const theme = settings.darkMode ? DARK_THEME : LIGHT_THEME;
@@ -82,11 +84,25 @@ function AppContent() {
     if (navReady && passwordRecovery) navigationRef.navigate('ResetPassword');
   }, [navReady, passwordRecovery]);
 
-  useEffect(() => { mobileAds().initialize(); }, []);
+  // UMP consent refresh (+ form if required) once per launch; the Mobile Ads SDK
+  // is initialized only if UMP says canRequestAds. See src/utils/adsGate.ts.
+  useEffect(() => { adsGate.ensureReady(); }, []);
+
+  // Ask every signed-in account (new or existing) once before anything is
+  // published to the public leaderboard. "Later" hides it until next launch.
+  const lbChoice = useLeaderboardChoice(profile?.id);
+  const [lbLaterFor, setLbLaterFor] = useState<string | null>(null);
+  const showLbPrompt = !!profile && lbChoice === null && lbLaterFor !== profile.id;
 
   return (
     <NavigationContainer ref={navigationRef} onReady={() => setNavReady(true)} theme={navTheme}>
       <StatusBar style={settings.darkMode ? 'light' : 'dark'} />
+      <LeaderboardConsentModal
+        visible={showLbPrompt}
+        current={lbChoice}
+        onChoose={choice => { if (profile) chooseLeaderboard(profile.id, choice, t); }}
+        onLater={() => setLbLaterFor(profile?.id ?? null)}
+      />
       <Stack.Navigator initialRouteName="Home" screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Home" component={HomeScreen} />
         <Stack.Screen name="Practice" component={PracticeScreen} />

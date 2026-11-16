@@ -317,6 +317,27 @@ export interface T {
   leaderboardEmpty: string;
   leaderboardYou: string;
   leaderboardNotConfigured: string;
+  adsChecking: string;
+  adsBlocked: string;
+  adsCheckFailed: string;
+  adsPrivacyOptionsBtn: string;
+  privacyPolicyLink: string;
+  lbConsentTitle: string;
+  lbConsentBody: string;
+  lbConsentNote: string;
+  lbConsentJoin: string;
+  lbConsentDecline: string;
+  lbConsentLater: string;
+  lbSettingTitle: string;
+  lbStatusIn: string;
+  lbStatusOut: string;
+  lbStatusUnset: string;
+  lbChangeBtn: string;
+  lbSaveFailedTitle: string;
+  lbSaveFailedOut: string;
+  lbSaveFailedIn: string;
+  lbRetryBtn: string;
+  okBtn: string;
   // player ranks (shown on the leaderboard + profile)
   rankBeginner: string;
   rankIntermediate: string;

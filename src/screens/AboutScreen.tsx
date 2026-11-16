@@ -5,7 +5,7 @@ import { Feather } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useLang } from '../context/LangContext';
 import { useTheme, ThemeColors } from '../utils/theme';
-import { getAbout, DEVELOPER_EMAIL, APP_VERSION } from '../constants/about';
+import { getAbout, DEVELOPER_EMAIL, APP_VERSION, PRIVACY_POLICY_URL } from '../constants/about';
 import AppHeader from '../components/AppHeader';
 
 export default function AboutScreen() {
@@ -81,6 +81,16 @@ export default function AboutScreen() {
           >
             <Feather name="mail" size={15} color={C.primary} />
             <Text style={s.contactTxt}>{about.developer.contactLabel}: {DEVELOPER_EMAIL}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={s.contactRow}
+            onPress={() => Linking.openURL(PRIVACY_POLICY_URL).catch(() => {})}
+            activeOpacity={0.7}
+            accessibilityRole="link"
+          >
+            <Feather name="shield" size={15} color={C.primary} />
+            <Text style={s.contactTxt}>{t.privacyPolicyLink}</Text>
           </TouchableOpacity>
         </View>
 

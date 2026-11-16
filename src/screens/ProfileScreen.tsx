@@ -13,6 +13,8 @@ import { formatMinutes } from '../utils/format';
 import { badgeForFlags, BADGE_META, ALL_BADGES, UserBadge } from '../constants/badges';
 import { RANK_LABEL, Rank } from '../constants/ranks';
 import AppHeader from '../components/AppHeader';
+import LeaderboardConsentModal from '../components/LeaderboardConsentModal';
+import { leaderboardChoice, chooseLeaderboard, alertSaveFailed, useLeaderboardChoice, useLeaderboardSaveStatus } from '../utils/leaderboardConsent';
 
 type Styles = ReturnType<typeof makeStyles>;
 
@@ -21,9 +23,14 @@ export default function ProfileScreen() {
   const { t } = useLang();
   const { profile, rank, isAdmin, isPatron, updateProfile, deleteAccount, logout } = useProfile();
   const myBadge = badgeForFlags({ isAdmin, isPatron });
-  const { stats } = useHistory();
+  const { stats, myRank } = useHistory();
+  // Private effective rank (works without leaderboard opt-in); server rank until hydrated.
+  const shownRank = myRank ?? rank;
   const C = useTheme();
   const s = makeStyles(C);
+  const lbChoice = useLeaderboardChoice(profile?.id);
+  const lbSave = useLeaderboardSaveStatus(profile?.id);
+  const [lbModal, setLbModal] = useState(false);
 
   // Edit mode (signed-in state) — email is the account identity and can't be
   // edited here, only the display name.
@@ -114,10 +121,10 @@ export default function ProfileScreen() {
                   </View>
                 );
               })()}
-              {!!rank && (
+              {!!shownRank && (
                 <View style={s.rankChip}>
                   <Feather name="star" size={12} color="#0ea5e9" />
-                  <Text style={s.rankChipTxt}>{RANK_LABEL[rank as Rank] ?? rank}</Text>
+                  <Text style={s.rankChipTxt}>{RANK_LABEL[shownRank as Rank] ?? shownRank}</Text>
                 </View>
               )}
               <View style={s.sinceChip}>
@@ -175,6 +182,39 @@ export default function ProfileScreen() {
                   </TouchableOpacity>
                 </>
               )}
+            </View>
+
+            {/* ---- Public leaderboard choice (stored on this device, per account) ---- */}
+            <View style={s.card2}>
+              <View style={s.cardHead}>
+                <View style={[s.cardIcon, { backgroundColor: C.primaryTint }]}>
+                  <Feather name="bar-chart-2" size={16} color={C.primary} />
+                </View>
+                <Text style={s.cardTitle}>{t.lbSettingTitle}</Text>
+              </View>
+              <Text style={s.lbStatusTxt}>
+                {lbChoice === 'in' ? t.lbStatusIn : lbChoice === 'out' ? t.lbStatusOut : t.lbStatusUnset}
+              </Text>
+              {lbSave === 'failed' && (lbChoice === 'in' || lbChoice === 'out') && (
+                <TouchableOpacity
+                  onPress={() => leaderboardChoice.retrySave(profile.id).then(r => { if (r === 'failed') alertSaveFailed(profile.id, lbChoice, t); })}
+                  accessibilityRole="button"
+                >
+                  <Text style={s.lbErrorTxt}>
+                    {lbChoice === 'out' ? t.lbSaveFailedOut : t.lbSaveFailedIn} ({t.lbRetryBtn})
+                  </Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity style={s.editBtn} onPress={() => setLbModal(true)} activeOpacity={0.8} accessibilityRole="button">
+                <Feather name="sliders" size={14} color={C.primary} />
+                <Text style={s.editBtnTxt}>{t.lbChangeBtn}</Text>
+              </TouchableOpacity>
+              <LeaderboardConsentModal
+                visible={lbModal}
+                current={lbChoice}
+                onChoose={choice => { setLbModal(false); chooseLeaderboard(profile.id, choice, t); }}
+                onLater={() => setLbModal(false)}
+              />
             </View>
 
             {/* ---- Activity summary (from practice history) ---- */}
@@ -353,6 +393,8 @@ function makeStyles(C: ThemeColors) {
     cardHead: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
     cardIcon: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
     cardTitle: { fontFamily: 'Heebo_700Bold', fontSize: 15.5, color: C.text },
+    lbStatusTxt: { fontFamily: 'Heebo_400Regular', fontSize: 13, color: C.muted, lineHeight: 19, marginBottom: 10 },
+    lbErrorTxt: { fontFamily: 'Heebo_500Medium', fontSize: 12.5, color: '#ef4444', lineHeight: 18, marginBottom: 10 },
 
     fieldRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8 },
     fieldLabel: { fontFamily: 'Heebo_500Medium', fontSize: 13, color: C.muted, marginBottom: 2 },

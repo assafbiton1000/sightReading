@@ -1,9 +1,14 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useProfile } from './ProfileContext';
 import { fetchUserStats, pushUserStats } from '../utils/userStats';
 import { pushLeaderboardScore } from '../utils/leaderboard';
-import { earnedRankIndex, RANK_MIN_ACCURACY } from '../constants/ranks';
+import { scheduleServerSync } from '../utils/leaderboardChoice';
+import { leaderboardChoice, useLeaderboardChoice } from '../utils/leaderboardConsent';
+import { earnedRankIndex, RANK_MIN_ACCURACY, rankIndex, rankFromIndex, type Rank } from '../constants/ranks';
+import { createRankFloorStore, createRankSyncDriver, createRankSyncer, effectiveRankIndex } from '../utils/accountRank';
+
+const rankFloors = createRankFloorStore(AsyncStorage);
 
 export type SessionMode = 'practice' | 'playback' | 'learning';
 
@@ -35,6 +40,10 @@ interface HistoryCtx {
   recordSession: (input: { mode: SessionMode; minutes: number; correct?: number; total?: number; level?: number }) => void;
   /** Call when the user finishes watching a rewarded ad on the Support screen. */
   recordAdWatch: () => void;
+  /** Private effective rank of the active account: max(server/admin rank, rank
+   * earned from local history, persisted local floor). null until the account
+   * is hydrated. Works without leaderboard opt-in (nothing is published). */
+  myRank: Rank | null;
 }
 
 const STORAGE_KEY = '@sightreading/history';
@@ -86,7 +95,10 @@ function mergeRecords(local: SessionRecord[], server: unknown[]): SessionRecord[
 const Ctx = createContext<HistoryCtx | null>(null);
 
 export function HistoryProvider({ children }: { children: React.ReactNode }) {
-  const { profile, syncRank } = useProfile();
+  const { profile, syncRank, rank: serverRank } = useProfile();
+  // Public-leaderboard opt-in for the signed-in account. Only 'in' publishes;
+  // an unset or 'out' choice still runs the private user_stats backup.
+  const optedIn = useLeaderboardChoice(profile?.id) === 'in';
   const [records, setRecords] = useState<SessionRecord[]>([]);
   const [points, setPoints] = useState(0);
   const [loaded, setLoaded] = useState(false);
@@ -94,6 +106,14 @@ export function HistoryProvider({ children }: { children: React.ReactNode }) {
   // write-through effect so it can never fire (and clobber the server) before
   // hydration — the bug that used to zero a user's leaderboard score on reinstall.
   const [hydratedUserId, setHydratedUserId] = useState<string | null>(null);
+  // Active account session: an account counts as active only once its server
+  // data has been merged. The epoch changes on every sign-out / switch /
+  // re-hydration; delayed writes and late responses compare it live, so a
+  // timer or reply from a previous session never writes for the new one.
+  // (A request already sent cannot be recalled.)
+  const activeUid = profile && hydratedUserId === profile.id ? profile.id : null;
+  const session = useRef({ uid: null as string | null, epoch: 0 });
+  if (session.current.uid !== activeUid) session.current = { uid: activeUid, epoch: session.current.epoch + 1 };
 
   // Latest local state, read inside the async hydration without re-triggering it.
   const recordsRef = useRef(records);
@@ -155,19 +175,26 @@ export function HistoryProvider({ children }: { children: React.ReactNode }) {
   // Write-through: mirror local changes up to the server (private stats + the
   // public leaderboard projection). Gated on hydratedUserId so it only ever
   // runs for a user whose server data we've already merged in — this is the
-  // single writer of the leaderboard, replacing the old duplicate push effects.
+  // single client writer of the leaderboard score. The public write is also
+  // gated on the user's leaderboard opt-in, re-checked live when the timer
+  // fires; a changed choice/account cancels the pending timer via cleanup.
   useEffect(() => {
-    if (!profile || hydratedUserId !== profile.id) return;
+    if (!activeUid || !profile) return;
+    const uid = activeUid;
+    const { epoch } = session.current;
+    const name = profile.name;
     const snapshotPoints = points;
     const snapshotRecords = records;
-    const id = setTimeout(() => {
-      pushUserStats(profile.id, snapshotPoints, snapshotRecords);
-      pushLeaderboardScore(profile.id, profile.name, snapshotPoints);
-    }, SERVER_SYNC_DELAY);
-    return () => clearTimeout(id);
-  }, [profile, hydratedUserId, points, records]);
+    return scheduleServerSync({
+      delayMs: SERVER_SYNC_DELAY,
+      isActive: () => session.current.uid === uid && session.current.epoch === epoch,
+      privateWrite: () => pushUserStats(uid, snapshotPoints, snapshotRecords),
+      publicWrite: () => pushLeaderboardScore(uid, name, snapshotPoints),
+      mayPublish: () => leaderboardChoice.isOptedIn(uid),
+    });
+  }, [activeUid, profile, points, records, optedIn]);
 
-  // Rank earned from qualifying (≥90%) sight-reading sessions: the count drives
+  // Rank earned from local qualifying (≥90%) sight-reading sessions: the count drives
   // the Beginner→Intermediate step, the hardest completed level drives the rest.
   const earnedRank = useMemo(() => {
     let qualifyingCount = 0;
@@ -181,19 +208,45 @@ export function HistoryProvider({ children }: { children: React.ReactNode }) {
     return earnedRankIndex({ qualifyingCount, maxQualifyingLevel });
   }, [records]);
 
-  // Push a newly-earned (higher) rank to the server. The sync-rank function only
-  // ever raises the stored rank, so re-sending is harmless; the ref just avoids
-  // redundant calls. Resets when the signed-in user changes.
-  const rankSync = useRef<{ uid: string | null; synced: number }>({ uid: null, synced: -1 });
+  // Private rank floor for the active account (only after its hydration): the
+  // highest rank reached here, so trimming old history never lowers it. Local,
+  // per account; never copied between accounts. See utils/accountRank.ts.
+  const floor = useSyncExternalStore(
+    rankFloors.subscribe,
+    () => (activeUid ? rankFloors.get(activeUid) : undefined),
+  );
+  useEffect(() => { if (activeUid) rankFloors.load(activeUid); }, [activeUid]);
   useEffect(() => {
-    if (!profile || hydratedUserId !== profile.id) return;
-    const st = rankSync.current;
-    if (st.uid !== profile.id) { st.uid = profile.id; st.synced = -1; }
-    if (earnedRank <= st.synced) return;
-    st.synced = earnedRank;
-    const id = setTimeout(() => { syncRank(earnedRank); }, SERVER_SYNC_DELAY);
-    return () => clearTimeout(id);
-  }, [profile, hydratedUserId, earnedRank, syncRank]);
+    if (activeUid && floor !== undefined && earnedRank > floor) rankFloors.raise(activeUid, earnedRank);
+  }, [activeUid, floor, earnedRank]);
+  const myRank: Rank | null = activeUid && floor !== undefined
+    ? rankFromIndex(effectiveRankIndex({ serverIndex: serverRank ? rankIndex(serverRank) : null, earnedIndex: earnedRank, floorIndex: floor }))
+    : null;
+
+  // Push a higher rank to the server. sync-rank also upserts the user's public
+  // leaderboard row (name + rank), so it runs only for opted-in users. The
+  // syncer marks a rank synced only after the server confirmed it for this
+  // same account session (userId + epoch). The driver re-schedules on session /
+  // opt-in / rank changes and on practice activity (`points` rises with every
+  // tracked session or ad watch, and on hydration), which is what retries a
+  // failed sync — once per such event, no polling, nothing on plain re-renders.
+  const syncRankRef = useRef(syncRank);
+  syncRankRef.current = syncRank;
+  const [rankDriver] = useState(() => createRankSyncDriver(createRankSyncer({
+    send: rank => syncRankRef.current(rank),
+    isActive: (uid, epoch) => session.current.uid === uid && session.current.epoch === epoch,
+    mayPublish: uid => leaderboardChoice.isOptedIn(uid),
+  }), SERVER_SYNC_DELAY));
+  useEffect(() => {
+    rankDriver.update({
+      userId: activeUid,
+      epoch: session.current.epoch,
+      optedIn,
+      rankIndex: floor === undefined ? null : Math.max(earnedRank, floor),
+      activity: points,
+    });
+  }, [rankDriver, activeUid, optedIn, earnedRank, floor, points]);
+  useEffect(() => () => rankDriver.dispose(), [rankDriver]);
 
   const addPoints = useCallback((amount: number) => {
     setPoints(prev => {
@@ -256,7 +309,7 @@ export function HistoryProvider({ children }: { children: React.ReactNode }) {
     };
   }, [records]);
 
-  return <Ctx.Provider value={{ loaded, stats, points, recordSession, recordAdWatch }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ loaded, stats, points, recordSession, recordAdWatch, myRank }}>{children}</Ctx.Provider>;
 }
 
 export function useHistory(): HistoryCtx {
